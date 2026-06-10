@@ -1,0 +1,8 @@
+# Dependências e pacotes
+node_modules/
+jspm_packages/
+
+# Logs
+*.log
+npm-debug.log*
+firebase-debug.log
