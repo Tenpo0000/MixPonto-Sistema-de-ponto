@@ -49,17 +49,6 @@ Interface web completa para gerenciamento de registros de ponto em português br
 - Sequência de presença contínua.
 - Comparação com períodos anteriores.
 
-## Personalizações
-
-As cores e estilos podem ser ajustados diretamente no arquivo `style.css` utilizando variáveis CSS:
-
-css
-:root {
-    --cor-primaria: #0052cc;
-    --cor-secundaria: #f5f7fa;
-    --cor-destaque: #ff6b6b;
-    --cor-sucesso: #51cf66;
-}
 
 ## Responsividade
 
