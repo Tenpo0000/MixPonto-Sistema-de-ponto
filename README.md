@@ -29,21 +29,21 @@ Interface web completa para gerenciamento de registros de ponto em português br
 ### Cartão Ponto
 - Exibição de horas trabalhadas diariamente.
 - Cálculo de saldo de banco de horas.
-- Registro de faltas e atrasos com justificativas.
-- Status mensal do período em andamento.
+- Registro de faltas e atrasos com justificativas. - em desenvolvimento
+- Status mensal do período em andamento. - em desenvolvimento
 
 ### Tabela de Registros
 - Visualização detalhada por dia.
 - Suporte para múltiplas entradas e saídas.
-- Indicação de registros manuais.
-- Opções de ajuste em caso de falta ou inconsistência.
+- Indicação de registros manuais. - em desenvolvimento
+- Opções de ajuste em caso de falta ou inconsistência. - em desenvolvimento
 
-### Modais Interativos
+### Modais Interativos - em desenvolvimento
 - Inclusão manual de ponto com justificativa.
 - Ajuste de ponto com opções de correção, justificativa ou anexação de documentos.
 - Fechamento e salvamento com notificações visuais.
 
-### Estatísticas
+### Estatísticas - em desenvolvimento
 - Média de horas semanais.
 - Quantidade de chegadas atrasadas.
 - Sequência de presença contínua.
@@ -63,15 +63,14 @@ A interface é adaptável a diferentes dispositivos:
 ### Classe Principal: SistemaPonto
 
 - `inicializar()` – Configura todos os componentes da interface.
-- `configurarMenu()` – Gerencia navegação lateral e estados ativos.
+- `configurarMenu()` – Gerencia navegação lateral e estados ativos. - em desenvolvimento
 - `configurarBotoes()` – Define eventos dos botões principais e de ajuste.
 - `configurarBusca()` – Implementa busca e filtragem de registros.
 - `carregarDados()` – Consulta registros no Firebase e renderiza a tabela.
-- `abrirModalInclusao()` – Exibe modal para inclusão manual de ponto.
-- `abrirModalAjuste()` – Exibe modal para ajustes de registros.
-- `exportarPDF()` – Simula exportação do cartão de ponto em PDF.
+- `abrirModalInclusao()` – Exibe modal para inclusão manual de ponto. - em desenvolvimento
+- `abrirModalAjuste()` – Exibe modal para ajustes de registros. - em desenvolvimento 
+- `exportarPDF()` – Simula exportação do cartão de ponto em PDF. - em desenvolvimento
 - `filtrarRegistros()` – Filtra registros da tabela por termo de busca.
-- `exibirNotificacao()` – Mostra mensagens temporárias ao usuário.
 
 ## Expansão
 
