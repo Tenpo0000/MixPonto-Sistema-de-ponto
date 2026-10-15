@@ -1,201 +1,28 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sistema de Ponto</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="container">
-      <aside class="sidebar">
-        <div class="logo">
-          <h2>Sistema de ponto</h2>
-        </div>
-        <nav class="menu">
-          <button class="menu-item ativo">
-            <span class="icone"></span>
-            Início
-          </button>
-          <button class="menu-item">
-            <span class="icone"></span>
-            Cadastro
-          </button>
-          <button class="menu-item">
-            <span class="icone"></span>
-            Movimentações
-          </button>
-          <button class="menu-item">
-            <span class="icone"></span>
-            Configurações
-          </button>
-        </nav>
-        <button class="btn-sobre">Sobre</button>
-      </aside>
-
-      <main class="conteudo">
-        <header class="topo">
-          <img src="/img/lupa.png" alt="icone de lupa" />
-          <input
-            type="text"
-            class="busca"
-            placeholder="Buscar funcionário..."
-          />
-          <div class="info-usuario">
-            <button class="notificacoes"></button>
-            <div class="usuario">
-              <span>Joãozinho do RH</span>
-              <small>ADMINISTRADOR</small>
-            </div>
-            <img src="/img/Joãzinho do RH.png" alt="Avatar" class="avatar" />
-          </div>
-        </header>
-
-        <section class="area-trabalho">
-          <div class="breadcrumb">
-            <span>Movimentações > </span>
-            <span class="destacado">Cartão ponto</span>
-          </div>
-
-          <div class="cabecalho-pagina">
-            <div>
-              <h1>Cartão Ponto</h1>
-              <p>Visualização mensal: Outubro</p>
-            </div>
-            <div class="botoes-acao">
-              <button class="btn btn-primario">+ Inclusão Manual</button>
-              <button class="btn btn-secundario">Exportar PDF</button>
-            </div>
-          </div>
-
-          <div class="cards-info">
-            <div class="card">
-              <h3>Total de Horas</h3>
-              <p class="valor">0h</p>
-              <small>sem extras</small>
-            </div>
-            <div class="card">
-              <h3>Saldo de Banco</h3>
-              <p class="valor positivo">0h</p>
-              <small>Acumulado do semestre</small>
-            </div>
-            <div class="card">
-              <h3>Faltas/Atrasos</h3>
-              <p class="valor negativo">02 registros</p>
-              <small>Aguardando justificativa</small>
-            </div>
-            <div class="card">
-              <h3>Status do Mês</h3>
-              <p class="status">EM ABERTO</p>
-              <br />
-              <small>Fechamento em 5 dias</small>
-            </div>
-          </div>
-
-          <div class="tabela-container">
-            <table class="tabela-registros">
-              <thead>
-                <tr>
-                  <th>Ultimos registros</th>
-                  <th>ENTRADA 1</th>
-                  <th>SAÍDA 1</th>
-                  <th>ENTRADA 2</th>
-                  <th>SAÍDA 2</th>
-                  <th>TOTAL</th>
-                  <th>JUSTIFICATIVA / OBSERVAÇÃO</th>
-                  <th>AÇÕES</th>
-                </tr>
-              </thead>
-              <tbody id="corpo-tabela">
-                <tr>
-                  <td class="dia">
-                    <span class="numero">01 Out</span>
-                    <small>Segunda-feira</small>
-                  </td>
-                  <td>08:02</td>
-                  <td>12:05</td>
-                  <td>13:10</td>
-                  <td>18:00</td>
-                  <td class="total">09:03</td>
-                  <td>—</td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td class="dia">
-                    <span class="numero">02 Out</span>
-                    <small>Terça-feira</small>
-                  </td>
-                  <td>08:15</td>
-                  <td class="manual">
-                    12:00 <span class="badge">Manual</span>
-                  </td>
-                  <td>13:00</td>
-                  <td>18:15</td>
-                  <td class="total">09:00</td>
-                  <td>
-                    <a href="#" class="link-acao">Esqueceu de bater o ponto</a>
-                  </td>
-                  <td></td>
-                </tr>
-                <tr class="linha-falta">
-                  <td class="dia">
-                    <span class="numero">03 Out</span>
-                    <small>Quarta-feira</small>
-                  </td>
-                  <td class="falta">FALTA</td>
-                  <td>-----</td>
-                  <td>-----</td>
-                  <td>-----</td>
-                  <td class="total negativo">00:00</td>
-                  <td><a href="#" class="link-acao">Atestado</a></td>
-                  <td><button class="btn-ajustar">Ajustar</button></td>
-                </tr>
-                <tr>
-                  <td class="dia">
-                    <span class="numero">04 Out</span>
-                    <small>Quinta-feira</small>
-                  </td>
-                  <td>07:55</td>
-                  <td>12:00</td>
-                  <td>13:00</td>
-                  <td>17:00</td>
-                  <td class="total">08:05</td>
-                  <td>—</td>
-                  <td></td>
-                </tr>
-              </tbody>
-            </table>
-            <p class="rodape-tabela">Exibindo 4 de 31 dias registrados</p>
-          </div>
-
-          <div class="estatisticas">
-            <div class="card-stat">
-              <h4>MÉDIA DE HORAS SEMANAIS</h4>
-              <div class="valor-stat">
-                0 <span class="variacao positiva">+0%</span>
-              </div>
-              <small>Em comparação com o período anterior</small>
-            </div>
-            <div class="card-stat">
-              <h4>CHEGADAS ATRASADAS</h4>
-              <div class="valor-stat">
-                0 <span class="variacao positiva">+0%</span>
-              </div>
-              <small>Em todos os departamentos</small>
-            </div>
-            <div class="card-stat">
-              <h4>SEQUÊNCIA DE PRESENÇA</h4>
-              <div class="valor-stat">
-                0 <span class="dias">dias seguidos</span>
-              </div>
-              <small>Record: 2</small>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-
-    <script type="module" src="/fireBase_config.js"></script>
-    <script type="module" src="script.js"></script>
-  </body>
-</html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sistema de Ponto</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<section id="auth-tela" class="auth-tela"><div class="auth-cartao"><h1>Sistema de Ponto</h1><h2 id="auth-titulo">Entre na sua conta</h2><p class="auth-descricao">Acesse os dados da sua empresa.</p><form id="auth-form"><fieldset><div id="auth-cadastro" hidden><label>Seu nome<input id="auth-nome" autocomplete="name" maxlength="160"></label><label>Nome da empresa<input id="auth-empresa" autocomplete="organization" maxlength="160"></label></div><label>E-mail<input id="auth-email" type="email" autocomplete="username" required maxlength="254"></label><label>Senha<input id="auth-senha" type="password" autocomplete="current-password" required></label><label class="auth-lembrar"><input type="checkbox" id="auth-lembrar">Manter conectado neste navegador</label><button id="auth-submit" type="submit" class="btn btn-primario">Entrar</button></fieldset></form><p id="auth-mensagem" role="status" aria-live="polite">Preparando acesso seguro…</p><button type="button" class="mov-link" id="auth-recuperar">Esqueci minha senha</button><button type="button" class="mov-link" id="auth-alternar">Criar uma conta para minha empresa</button><button type="button" class="btn btn-secundario" id="auth-recarregar" hidden>Recarregar Página</button></div></section><div class="container" id="app-shell" hidden><aside class="sidebar"><div class="logo"><h2>Sistema de ponto</h2></div><nav class="menu" aria-label="Navegação principal"><button class="menu-item" data-view="inicio"></button>
+<div class="menu-grupo"><button class="menu-item" data-view="cadastro" aria-expanded="false" aria-controls="submenu-cadastro"></button><div class="submenu" id="submenu-cadastro" hidden>
+<button class="submenu-item" data-view="empresa">Empresa</button><button class="submenu-item" data-view="horario">Horário</button><button class="submenu-item" data-view="cadastro">Funcionário</button><button class="submenu-item" data-view="cargo">Cargo</button><button class="submenu-item" data-view="departamento">Departamento</button><button class="submenu-item" data-view="feriado">Feriado</button><button class="submenu-item" data-view="justificativa">Justificativa</button>
+</div></div><div class="menu-grupo"><button class="menu-item" data-view="movimentacoes" aria-expanded="false" aria-controls="submenu-movimentacoes"></button><div class="submenu" id="submenu-movimentacoes" hidden><button class="submenu-item" data-view="movimentacoes">Cartão ponto</button><button class="submenu-item" data-view="relatorio">Relatório de cálculos</button><button class="submenu-item" data-view="demitidos">Funcionários demitidos</button></div></div>
+<div class="menu-grupo"><button class="menu-item" data-view="configuracoes" aria-expanded="false" aria-controls="submenu-configuracoes"></button><div class="submenu" id="submenu-configuracoes" hidden><button class="submenu-item" data-view="usuarios">Usuários</button><button class="submenu-item" data-view="gerenciamento">Gerenciamento</button></div></div></nav><button class="btn-sobre" id="btn-sobre"></button></aside>
+<main class="conteudo"><header class="topo"><label class="busca-wrap"><span id="icone-busca" aria-hidden="true"></span><input type="text" class="busca" id="busca" placeholder="Buscar funcionário..." aria-label="Buscar funcionário"></label><div class="info-usuario"><span id="sessao-email" class="sessao-email"></span><button type="button" class="btn btn-secundario btn-sair" id="btn-sair">Sair</button><span class="conexao" id="conexao"></span><button class="notificacoes" id="sino" aria-label="Notificações"></button><div class="usuario"><span>Joãozinho do RH</span><small>ADMINISTRADOR</small></div><div class="avatar" aria-hidden="true">JR</div></div></header><section class="area-trabalho" id="view"></section></main></div>
+<script type="module">
+try {
+    const { iniciar } = await import('./bootstrap.js');
+    await iniciar();
+} catch (error) {
+    console.error('Falha ao iniciar:', error);
+    const mensagem = document.getElementById('auth-mensagem');
+    mensagem.classList.add('auth-erro');
+    mensagem.textContent = 'Não foi possível carregar o acesso. Confira a conexão e os arquivos do projeto. Detalhe: ' + String(error.message || error);
+    document.getElementById('auth-form').hidden = true;
+    document.getElementById('auth-alternar').hidden = true;
+    document.getElementById('auth-recuperar').hidden = true;
+    const reload = document.getElementById('auth-recarregar');
+    reload.hidden = false;
+    reload.onclick = () => location.reload();
+}
+</script>
+</body></html>
