@@ -1,0 +1,6 @@
+{
+  "name": "mixponto-testes-isolamento",
+  "private": true,
+  "type": "module",
+  "scripts": { "test:local": "node --test isolamento-local.cjs" }
+}
