@@ -1,8 +1,8 @@
 {
-  "name": "mixponto-testes-isolamento",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "test:local": "node --test isolamento-local.cjs rfid-local.cjs cadastros-local.cjs jornada-demissao.cjs periodo-cadastro.cjs batidas-manuais.cjs"
-  }
+    "name": "mixponto-testes-isolamento",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "test:local": "node --test isolamento-local.cjs rfid-local.cjs cadastros-local.cjs jornada-demissao.cjs periodo-cadastro.cjs batidas-manuais.cjs"
+    }
 }

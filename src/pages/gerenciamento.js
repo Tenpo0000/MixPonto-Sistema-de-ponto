@@ -5,25 +5,488 @@ import { db, usandoFirebase } from '../core/db.js';
 import { campo, carregado, executar, erroForm, gravar } from '../core/cadastros.js';
 import { perfilAtual, alertasAtuais, perfilId } from '../core/preferencias.js';
 import { abrirModal, toast } from '../core/ui.js';
-let aba='conta',editando=false,draft=null,fotoPendente=false;
-const ABAS={conta:'Conta',organizacao:'Organização',notificacoes:'Notificações',cobranca:'Cobrança'};
-function switchAlerta(id,titulo,descricao,checked){return `<label class="conf-alerta"><span><strong>${titulo}</strong><small>${descricao}</small></span><input type="checkbox" role="switch" name="${id}" ${checked?'checked':''}></label>`;}
-function alertas(){const a=alertasAtuais();return `<section class="conf-card"><h2>♧ Alertas de Email</h2><form id="pref-alertas"><fieldset class="cad-fieldset" ${carregado('preferencias')?'':'disabled'}>${switchAlerta('atrasos','Entradas atrasadas','Alertar quando faltarem registros diários',a.atrasos)}${switchAlerta('ausencias','Relatórios de ausência','Resumo de ausências dos funcionários',a.ausencias)}${switchAlerta('extras','Avisos de horas extras','Avisar sobre excedentes de jornada',a.extras)}<p class="erro" data-erro hidden></p><button class="btn btn-primario conf-salvar-alertas" type="submit">Salvar Preferências</button></fieldset></form><p class="conf-nota">O envio de e-mails ainda não está ativado. Estas opções salvam suas preferências.</p></section>`;}
-function perfil(){const p=draft||perfilAtual();return `<section class="conf-card"><header class="conf-card-header"><h2>Detalhes do Perfil</h2><button type="button" class="mov-link" id="pref-editar" ${carregado('preferencias')?'':'disabled'}>${editando?'Cancelar Edição':'Editar Perfil'}</button></header><div class="conf-perfil-identidade"><label class="conf-perfil-foto" for="pref-foto"><span id="pref-foto-preview">${p.foto?`<img src="${esc(p.foto)}" alt="Foto do perfil">`:`<b>${esc(iniciais(p.nome))}</b>`}</span>${editando?'':''}</label><input type="file" id="pref-foto" accept="image/jpeg,image/png" class="cad-sr" ${!editando?'disabled':''}><div><strong>${esc(p.nome)}</strong><span>Conta autenticada</span><small>Preferências pessoais</small></div></div><form id="pref-perfil" novalidate><fieldset class="cad-fieldset" ${!editando||!carregado('preferencias')?'disabled':''}><div class="cad-duas-colunas">${campo('nome','Nome completo',p.nome,'maxlength="160" autocomplete="name" required')}${campo('email','Endereço de Email',p.email,'type="email" maxlength="254" autocomplete="email" readonly')}${campo('cargo','Cargo',p.cargo,'maxlength="100"')}${campo('departamento','Departamento',p.departamento,'maxlength="100"')}</div><p class="erro" data-erro hidden></p>${editando?'<div class="conf-perfil-acoes"><button class="btn btn-secundario" type="button" id="pref-sem-foto">Remover Foto</button><button class="btn btn-primario" type="submit">Salvar Perfil</button></div>':''}</fieldset></form><p id="pref-foto-status" class="cad-ajuda" role="status">${fotoPendente?'Processando foto…':''}</p></section>`;}
-function seguranca(){return `<section class="conf-card"><h2>♙ Segurança e senha</h2><form id="pref-senha" autocomplete="off"><div class="cad-duas-colunas"><label class="cad-campo"><span>Senha atual</span><input type="password" name="atual" autocomplete="current-password" required></label><label class="cad-campo"><span>Nova senha</span><input type="password" name="nova" autocomplete="new-password" minlength="8" required></label></div><label class="cad-campo cad-espaco"><span>Confirme a nova senha</span><input type="password" name="confirmacao" autocomplete="new-password" minlength="8" required></label><p class="erro" data-erro hidden></p><button type="submit" class="btn btn-primario conf-senha">Atualizar Senha</button></form><p class="conf-nota">A alteração é feita no Firebase Authentication após confirmar sua senha atual.</p></section>`;}
-function organizacao(){const c=cfg(),e=state.empresa?.nome?state.empresa:(empresasDisponiveis()[0]||{});return `<section class="conf-card"><h2>Organização</h2><p class="conf-texto">${e.nome?esc(e.nome):'Nenhuma empresa cadastrada.'}</p>${e.cidade?`<p class="conf-nota">${esc(e.cidade)} · ${esc(e.uf)}</p>`:''}<a class="btn btn-secundario" href="#empresa">Ver Empresas</a></section><section class="conf-card"><h2>Jornada global</h2><p class="conf-nota">Usada quando o funcionário não tem um perfil de horário vinculado.</p><form id="pref-jornada" novalidate><fieldset class="cad-fieldset" ${carregado('config')?'':'disabled'}><div class="cad-duas-colunas">${campo('jornada','Carga diária (horas)',c.jornada,'type="number" min="1" max="12" step="0.5" required')}${campo('tolerancia','Tolerância de atraso (minutos)',c.tolerancia,'type="number" min="0" max="60" step="1" required')}</div><div class="cad-campo cad-espaco"><span>Dias de trabalho</span><div class="dias-semana">${DIAS_CURTO.map((n,i)=>`<label><input type="checkbox" name="dia" value="${i}" ${String(c.diasTrabalho).includes(String(i))?'checked':''}>${n}</label>`).join('')}</div></div><p class="erro" data-erro hidden></p><button class="btn btn-primario" type="submit">Salvar Jornada</button></fieldset></form></section>`;}
-function cobranca(){return `<section class="conf-card"><h2>Cobrança</h2><p class="conf-texto">Não há plano, faturas ou pagamentos vinculados a este sistema.</p><p class="conf-nota">A cobrança ainda não está integrada. Nenhum dado de pagamento é solicitado nesta página.</p></section>`;}
-export function view(){if(!editando&&!fotoPendente)draft=perfilAtual();const p=perfilAtual(),preenchidos=['nome','email','cargo','departamento'].filter(k=>String(p[k]||'').trim()).length,percent=Math.round(preenchidos*25),salvo=state.preferencias?.atualizadoEm;const dataSalvo=salvo&&Number.isFinite(+new Date(salvo))?new Date(salvo).toLocaleString('pt-BR'):'Nenhuma alteração salva ainda.';return `<div class="conf-page"><div class="breadcrumb"><span>Configurações</span><span>›</span><span class="destacado">Gerenciamento</span></div><div class="cabecalho-pagina"><div><h1>Configurações de Usuário</h1><p>Gerencie seu perfil pessoal e preferências organizacionais.</p></div></div><div class="conf-abas" role="tablist" aria-label="Configurações de usuário">${Object.entries(ABAS).map(([id,n])=>`<button type="button" role="tab" id="conf-tab-${id}" aria-controls="conf-painel" aria-selected="${aba===id}" data-conf-aba="${id}">${n}</button>`).join('')}</div><div class="conf-layout"><div class="conf-principal" id="conf-painel" role="tabpanel" aria-labelledby="conf-tab-${aba}">${aba==='conta'?perfil()+seguranca():aba==='organizacao'?organizacao():aba==='notificacoes'?alertas():cobranca()}</div><aside class="conf-lateral">${aba==='conta'?alertas():''}<section class="conf-status"><header><small>${carregado('preferencias')?usandoFirebase?'Firebase':'Modo Local':'Carregando'}</small></header><h2>Status do Perfil</h2><p>Preferências da conta autenticada.</p><p class="conf-ultima-gravacao">${esc(dataSalvo)}</p><progress max="100" value="${percent}" aria-label="Preenchimento do perfil">${percent}%</progress><div><small>Preenchimento do perfil</small><strong>${percent}%</strong></div></section><section class="conf-ajuda"><h3>Precisa de ajuda?</h3><p>Consulte as orientações de cadastro e uso do sistema.</p><button class="mov-link" id="pref-ajuda">Ver Orientações</button></section></aside></div></div>`;}
-export function validarPerfil(p){if(!p.nome.trim())return 'Informe seu nome completo.';if(p.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))return 'Informe um e-mail válido ou deixe em branco.';return '';}
-export function bind({render}){
- $$('[data-conf-aba]').forEach(b=>{b.addEventListener('click',()=>{aba=b.dataset.confAba;render();$(`#conf-tab-${aba}`).focus();});b.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const ids=Object.keys(ABAS),i=ids.indexOf(aba);aba=e.key==='Home'?ids[0]:e.key==='End'?ids.at(-1):ids[(i+(e.key==='ArrowRight'?1:3))%4];render();$(`#conf-tab-${aba}`).focus();});});
- $('#pref-editar')?.addEventListener('click',()=>{editando=!editando;draft=perfilAtual();render();if(editando)$('#pref-perfil input')?.focus();});
- const form=$('#pref-perfil');form?.addEventListener('input',e=>{if(e.target.name in draft)draft[e.target.name]=e.target.value;});
- $('#pref-sem-foto')?.addEventListener('click',()=>{if(fotoPendente)return;draft.foto='';render();});
- $('#pref-foto')?.addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;if(!['image/png','image/jpeg'].includes(file.type)||file.size>5*1024*1024)return toast('Escolha PNG ou JPG de até 5 MB.','erro');fotoPendente=true;$('#pref-foto-status').textContent='Processando foto…';const destino=draft;try{const bitmap=await createImageBitmap(file),canvas=document.createElement('canvas'),escala=Math.min(1,384/Math.max(bitmap.width,bitmap.height));canvas.width=Math.max(1,Math.round(bitmap.width*escala));canvas.height=Math.max(1,Math.round(bitmap.height*escala));const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();if(destino===draft)draft.foto=canvas.toDataURL('image/jpeg',.82);}catch{toast('Não foi possível ler a foto.','erro');}finally{fotoPendente=false;if(['#gerenciamento','#configuracoes'].includes(location.hash))render();}});
- form?.addEventListener('submit',async e=>{e.preventDefault();if(form.dataset.salvando||!editando)return;if(fotoPendente)return erroForm(form,'Aguarde o processamento da foto.');const p={...draft};for(const k of ['nome','email','cargo','departamento'])p[k]=String(p[k]||'').trim();p.email=window.fb.auth.currentUser.email||'';const erro=validarPerfil(p);if(erro)return erroForm(form,erro);if(await executar(form,()=>db.update({[`preferencias/${perfilId()}/perfil`]:p,[`preferencias/${perfilId()}/atualizadoEm`]:new Date().toISOString()}),'Perfil salvo.')){editando=false;render();}});
- const af=$('#pref-alertas');af?.addEventListener('submit',async e=>{e.preventDefault();if(af.dataset.salvando)return;const d=new FormData(af),a=Object.fromEntries(['atrasos','ausencias','extras'].map(k=>[k,d.has(k)]));await executar(af,()=>db.update({[`preferencias/${perfilId()}/alertas`]:a,[`preferencias/${perfilId()}/atualizadoEm`]:new Date().toISOString()}),'Preferências salvas.');});
- const jf=$('#pref-jornada');jf?.addEventListener('submit',async e=>{e.preventDefault();if(jf.dataset.salvando)return;const d=new FormData(jf),jornada=Number(d.get('jornada')),tolerancia=Number(d.get('tolerancia')),diasTrabalho=d.getAll('dia').join('');if(!d.get('jornada')||!Number.isFinite(jornada)||jornada<1||jornada>12||jornada*2!==Math.round(jornada*2))return erroForm(jf,'Informe uma jornada entre 1 e 12 horas, em intervalos de meia hora.');if(d.get('tolerancia')===''||!Number.isInteger(tolerancia)||tolerancia<0||tolerancia>60)return erroForm(jf,'Informe tolerância inteira entre 0 e 60 minutos.');if(!diasTrabalho)return erroForm(jf,'Selecione ao menos um dia de trabalho.');await executar(jf,()=>gravar('config',{...state.config,jornada,tolerancia,diasTrabalho}),'Jornada salva.');});
- const sf=$('#pref-senha');sf?.addEventListener('submit',async e=>{e.preventDefault();if(sf.dataset.salvando)return;const d=new FormData(sf),atual=d.get('atual'),nova=d.get('nova');if(!atual||!nova||nova.length<8||nova!==d.get('confirmacao'))return erroForm(sf,'Informe a senha atual e confirme a nova senha com ao menos 8 caracteres.');const ok=await executar(sf,async()=>{const fb=window.fb,user=fb.auth.currentUser;if(!user?.email)throw Error('Sessão expirada.');await fb.reauthenticateWithCredential(user,fb.EmailAuthProvider.credential(user.email,atual));await fb.updatePassword(user,nova);},'Senha atualizada.');sf.reset();if(!ok)erroForm(sf,'Não foi possível alterar a senha. Confira a senha atual, a conexão e a política de senha do projeto.');});
- $('#pref-ajuda')?.addEventListener('click',()=>abrirModal({titulo:'Orientações do sistema',corpo:'<p class="conf-texto">Cadastre empresa, horários, cargos e departamentos antes de vincular os funcionários. Em Movimentações, acompanhe o cartão ponto e gere relatórios.</p><p class="conf-nota">Sua conta acessa apenas a própria empresa. Envio de e-mails de alertas e cobrança ainda não estão integrados.</p>'}));
+
+let aba = 'conta',
+    editando = false,
+    draft = null,
+    fotoPendente = false;
+const ABAS = {
+    conta: 'Conta',
+    organizacao: 'Organização',
+    notificacoes: 'Notificações',
+    cobranca: 'Cobrança'
+};
+
+function switchAlerta(id, titulo, descricao, checked) {
+    return `
+        <label class="conf-alerta">
+            <span>
+                <strong>${titulo}</strong>
+                <small>${descricao}</small>
+            </span>
+            <input type="checkbox" role="switch" name="${id}" ${checked ? 'checked' : ''} />
+        </label>
+    `;
+}
+
+function alertas() {
+    const a = alertasAtuais();
+    return `
+        <section class="conf-card">
+            <h2>♧ Alertas de Email</h2>
+            <form id="pref-alertas">
+                <fieldset class="cad-fieldset" ${carregado('preferencias') ? '' : 'disabled'}>
+                    ${switchAlerta('atrasos', 'Entradas atrasadas', 'Alertar quando faltarem registros diários', a.atrasos)}${switchAlerta('ausencias', 'Relatórios de ausência', 'Resumo de ausências dos funcionários', a.ausencias)}${switchAlerta('extras', 'Avisos de horas extras', 'Avisar sobre excedentes de jornada', a.extras)}
+                    <p class="erro" data-erro hidden></p>
+                    <button class="btn btn-primario conf-salvar-alertas" type="submit">
+                        Salvar Preferências
+                    </button>
+                </fieldset>
+            </form>
+            <p class="conf-nota">
+                O envio de e-mails ainda não está ativado. Estas opções salvam suas preferências.
+            </p>
+        </section>
+    `;
+}
+
+function perfil() {
+    const p = draft || perfilAtual();
+    return `
+        <section class="conf-card">
+            <header class="conf-card-header">
+                <h2>Detalhes do Perfil</h2>
+                <button
+                    type="button"
+                    class="mov-link"
+                    id="pref-editar"
+                    ${carregado('preferencias') ? '' : 'disabled'}
+                >
+                    ${editando ? 'Cancelar Edição' : 'Editar Perfil'}
+                </button>
+            </header>
+            <div class="conf-perfil-identidade">
+                <label class="conf-perfil-foto" for="pref-foto">
+                    <span id="pref-foto-preview">
+                        ${
+                            p.foto
+                                ? `
+                                      <img src="${esc(p.foto)}" alt="Foto do perfil" />
+                                  `
+                                : `
+                                      <b>${esc(iniciais(p.nome))}</b>
+                                  `
+                        }
+                    </span>
+                    ${editando ? '' : ''}
+                </label>
+                <input
+                    type="file"
+                    id="pref-foto"
+                    accept="image/jpeg,image/png"
+                    class="cad-sr"
+                    ${!editando ? 'disabled' : ''}
+                />
+                <div>
+                    <strong>${esc(p.nome)}</strong>
+                    <span>Conta autenticada</span>
+                    <small>Preferências pessoais</small>
+                </div>
+            </div>
+            <form id="pref-perfil" novalidate>
+                <fieldset
+                    class="cad-fieldset"
+                    ${!editando || !carregado('preferencias') ? 'disabled' : ''}
+                >
+                    <div class="cad-duas-colunas">
+                        ${campo('nome', 'Nome completo', p.nome, 'maxlength="160" autocomplete="name" required')}${campo('email', 'Endereço de Email', p.email, 'type="email" maxlength="254" autocomplete="email" readonly')}${campo('cargo', 'Cargo', p.cargo, 'maxlength="100"')}${campo('departamento', 'Departamento', p.departamento, 'maxlength="100"')}
+                    </div>
+                    <p class="erro" data-erro hidden></p>
+                    ${editando ? '<div class="conf-perfil-acoes"><button class="btn btn-secundario" type="button" id="pref-sem-foto">Remover Foto</button><button class="btn btn-primario" type="submit">Salvar Perfil</button></div>' : ''}
+                </fieldset>
+            </form>
+            <p id="pref-foto-status" class="cad-ajuda" role="status">
+                ${fotoPendente ? 'Processando foto…' : ''}
+            </p>
+        </section>
+    `;
+}
+
+function seguranca() {
+    return `
+        <section class="conf-card">
+            <h2>♙ Segurança e senha</h2>
+            <form id="pref-senha" autocomplete="off">
+                <div class="cad-duas-colunas">
+                    <label class="cad-campo">
+                        <span>Senha atual</span>
+                        <input
+                            type="password"
+                            name="atual"
+                            autocomplete="current-password"
+                            required
+                        />
+                    </label>
+                    <label class="cad-campo">
+                        <span>Nova senha</span>
+                        <input
+                            type="password"
+                            name="nova"
+                            autocomplete="new-password"
+                            minlength="8"
+                            required
+                        />
+                    </label>
+                </div>
+                <label class="cad-campo cad-espaco">
+                    <span>Confirme a nova senha</span>
+                    <input
+                        type="password"
+                        name="confirmacao"
+                        autocomplete="new-password"
+                        minlength="8"
+                        required
+                    />
+                </label>
+                <p class="erro" data-erro hidden></p>
+                <button type="submit" class="btn btn-primario conf-senha">Atualizar Senha</button>
+            </form>
+            <p class="conf-nota">
+                A alteração é feita no Firebase Authentication após confirmar sua senha atual.
+            </p>
+        </section>
+    `;
+}
+
+function organizacao() {
+    const c = cfg(),
+        e = state.empresa?.nome ? state.empresa : empresasDisponiveis()[0] || {};
+    return `
+        <section class="conf-card">
+            <h2>Organização</h2>
+            <p class="conf-texto">${e.nome ? esc(e.nome) : 'Nenhuma empresa cadastrada.'}</p>
+            ${
+                e.cidade
+                    ? `
+                          <p class="conf-nota">${esc(e.cidade)} · ${esc(e.uf)}</p>
+                      `
+                    : ''
+            }
+            <a class="btn btn-secundario" href="#empresa">Ver Empresas</a>
+        </section>
+        <section class="conf-card">
+            <h2>Jornada global</h2>
+            <p class="conf-nota">
+                Usada quando o funcionário não tem um perfil de horário vinculado.
+            </p>
+            <form id="pref-jornada" novalidate>
+                <fieldset class="cad-fieldset" ${carregado('config') ? '' : 'disabled'}>
+                    <div class="cad-duas-colunas">
+                        ${campo('jornada', 'Carga diária (horas)', c.jornada, 'type="number" min="1" max="12" step="0.5" required')}${campo('tolerancia', 'Tolerância de atraso (minutos)', c.tolerancia, 'type="number" min="0" max="60" step="1" required')}
+                    </div>
+                    <div class="cad-campo cad-espaco">
+                        <span>Dias de trabalho</span>
+                        <div class="dias-semana">
+                            ${DIAS_CURTO.map(
+                                (n, i) => `
+                                    <label>
+                                        <input
+                                            type="checkbox"
+                                            name="dia"
+                                            value="${i}"
+                                            ${String(c.diasTrabalho).includes(String(i)) ? 'checked' : ''}
+                                        />
+                                        ${n}
+                                    </label>
+                                `
+                            ).join('')}
+                        </div>
+                    </div>
+                    <p class="erro" data-erro hidden></p>
+                    <button class="btn btn-primario" type="submit">Salvar Jornada</button>
+                </fieldset>
+            </form>
+        </section>
+    `;
+}
+
+function cobranca() {
+    return `
+        <section class="conf-card">
+            <h2>Cobrança</h2>
+            <p class="conf-texto">Não há plano, faturas ou pagamentos vinculados a este sistema.</p>
+            <p class="conf-nota">
+                A cobrança ainda não está integrada. Nenhum dado de pagamento é solicitado nesta
+                página.
+            </p>
+        </section>
+    `;
+}
+
+export function view() {
+    if (!editando && !fotoPendente) draft = perfilAtual();
+    const p = perfilAtual(),
+        preenchidos = ['nome', 'email', 'cargo', 'departamento'].filter((k) =>
+            String(p[k] || '').trim()
+        ).length,
+        percent = Math.round(preenchidos * 25),
+        salvo = state.preferencias?.atualizadoEm;
+    const dataSalvo =
+        salvo && Number.isFinite(+new Date(salvo))
+            ? new Date(salvo).toLocaleString('pt-BR')
+            : 'Nenhuma alteração salva ainda.';
+    return `
+        <div class="conf-page">
+            <div class="breadcrumb">
+                <span>Configurações</span>
+                <span>›</span>
+                <span class="destacado">Gerenciamento</span>
+            </div>
+            <div class="cabecalho-pagina">
+                <div>
+                    <h1>Configurações de Usuário</h1>
+                    <p>Gerencie seu perfil pessoal e preferências organizacionais.</p>
+                </div>
+            </div>
+            <div class="conf-abas" role="tablist" aria-label="Configurações de usuário">
+                ${Object.entries(ABAS)
+                    .map(
+                        ([id, n]) => `
+                            <button
+                                type="button"
+                                role="tab"
+                                id="conf-tab-${id}"
+                                aria-controls="conf-painel"
+                                aria-selected="${aba === id}"
+                                data-conf-aba="${id}"
+                            >
+                                ${n}
+                            </button>
+                        `
+                    )
+                    .join('')}
+            </div>
+            <div class="conf-layout">
+                <div
+                    class="conf-principal"
+                    id="conf-painel"
+                    role="tabpanel"
+                    aria-labelledby="conf-tab-${aba}"
+                >
+                    ${aba === 'conta' ? perfil() + seguranca() : aba === 'organizacao' ? organizacao() : aba === 'notificacoes' ? alertas() : cobranca()}
+                </div>
+                <aside class="conf-lateral">
+                    ${aba === 'conta' ? alertas() : ''}
+                    <section class="conf-status">
+                        <header>
+                            <small>
+                                ${carregado('preferencias') ? (usandoFirebase ? 'Firebase' : 'Modo Local') : 'Carregando'}
+                            </small>
+                        </header>
+                        <h2>Status do Perfil</h2>
+                        <p>Preferências da conta autenticada.</p>
+                        <p class="conf-ultima-gravacao">${esc(dataSalvo)}</p>
+                        <progress max="100" value="${percent}" aria-label="Preenchimento do perfil">
+                            ${percent}%
+                        </progress>
+                        <div>
+                            <small>Preenchimento do perfil</small>
+                            <strong>${percent}%</strong>
+                        </div>
+                    </section>
+                    <section class="conf-ajuda">
+                        <h3>Precisa de ajuda?</h3>
+                        <p>Consulte as orientações de cadastro e uso do sistema.</p>
+                        <button class="mov-link" id="pref-ajuda">Ver Orientações</button>
+                    </section>
+                </aside>
+            </div>
+        </div>
+    `;
+}
+
+export function validarPerfil(p) {
+    if (!p.nome.trim()) return 'Informe seu nome completo.';
+    if (p.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
+        return 'Informe um e-mail válido ou deixe em branco.';
+    return '';
+}
+
+export function bind({ render }) {
+    $$('[data-conf-aba]').forEach((b) => {
+        b.addEventListener('click', () => {
+            aba = b.dataset.confAba;
+            render();
+            $(`#conf-tab-${aba}`).focus();
+        });
+        b.addEventListener('keydown', (e) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+            e.preventDefault();
+            const ids = Object.keys(ABAS),
+                i = ids.indexOf(aba);
+            aba =
+                e.key === 'Home'
+                    ? ids[0]
+                    : e.key === 'End'
+                      ? ids.at(-1)
+                      : ids[(i + (e.key === 'ArrowRight' ? 1 : 3)) % 4];
+            render();
+            $(`#conf-tab-${aba}`).focus();
+        });
+    });
+    $('#pref-editar')?.addEventListener('click', () => {
+        editando = !editando;
+        draft = perfilAtual();
+        render();
+        if (editando) $('#pref-perfil input')?.focus();
+    });
+    const form = $('#pref-perfil');
+    form?.addEventListener('input', (e) => {
+        if (e.target.name in draft) draft[e.target.name] = e.target.value;
+    });
+    $('#pref-sem-foto')?.addEventListener('click', () => {
+        if (fotoPendente) return;
+        draft.foto = '';
+        render();
+    });
+    $('#pref-foto')?.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 5 * 1024 * 1024)
+            return toast('Escolha PNG ou JPG de até 5 MB.', 'erro');
+        fotoPendente = true;
+        $('#pref-foto-status').textContent = 'Processando foto…';
+        const destino = draft;
+        try {
+            const bitmap = await createImageBitmap(file),
+                canvas = document.createElement('canvas'),
+                escala = Math.min(1, 384 / Math.max(bitmap.width, bitmap.height));
+            canvas.width = Math.max(1, Math.round(bitmap.width * escala));
+            canvas.height = Math.max(1, Math.round(bitmap.height * escala));
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            bitmap.close();
+            if (destino === draft) draft.foto = canvas.toDataURL('image/jpeg', 0.82);
+        } catch {
+            toast('Não foi possível ler a foto.', 'erro');
+        } finally {
+            fotoPendente = false;
+            if (['#gerenciamento', '#configuracoes'].includes(location.hash)) render();
+        }
+    });
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (form.dataset.salvando || !editando) return;
+        if (fotoPendente) return erroForm(form, 'Aguarde o processamento da foto.');
+        const p = { ...draft };
+        for (const k of ['nome', 'email', 'cargo', 'departamento'])
+            p[k] = String(p[k] || '').trim();
+        p.email = window.fb.auth.currentUser.email || '';
+        const erro = validarPerfil(p);
+        if (erro) return erroForm(form, erro);
+        if (
+            await executar(
+                form,
+                () =>
+                    db.update({
+                        [`preferencias/${perfilId()}/perfil`]: p,
+                        [`preferencias/${perfilId()}/atualizadoEm`]: new Date().toISOString()
+                    }),
+                'Perfil salvo.'
+            )
+        ) {
+            editando = false;
+            render();
+        }
+    });
+    const af = $('#pref-alertas');
+    af?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (af.dataset.salvando) return;
+        const d = new FormData(af),
+            a = Object.fromEntries(['atrasos', 'ausencias', 'extras'].map((k) => [k, d.has(k)]));
+        await executar(
+            af,
+            () =>
+                db.update({
+                    [`preferencias/${perfilId()}/alertas`]: a,
+                    [`preferencias/${perfilId()}/atualizadoEm`]: new Date().toISOString()
+                }),
+            'Preferências salvas.'
+        );
+    });
+    const jf = $('#pref-jornada');
+    jf?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (jf.dataset.salvando) return;
+        const d = new FormData(jf),
+            jornada = Number(d.get('jornada')),
+            tolerancia = Number(d.get('tolerancia')),
+            diasTrabalho = d.getAll('dia').join('');
+        if (
+            !d.get('jornada') ||
+            !Number.isFinite(jornada) ||
+            jornada < 1 ||
+            jornada > 12 ||
+            jornada * 2 !== Math.round(jornada * 2)
+        )
+            return erroForm(
+                jf,
+                'Informe uma jornada entre 1 e 12 horas, em intervalos de meia hora.'
+            );
+        if (
+            d.get('tolerancia') === '' ||
+            !Number.isInteger(tolerancia) ||
+            tolerancia < 0 ||
+            tolerancia > 60
+        )
+            return erroForm(jf, 'Informe tolerância inteira entre 0 e 60 minutos.');
+        if (!diasTrabalho) return erroForm(jf, 'Selecione ao menos um dia de trabalho.');
+        await executar(
+            jf,
+            () => gravar('config', { ...state.config, jornada, tolerancia, diasTrabalho }),
+            'Jornada salva.'
+        );
+    });
+    const sf = $('#pref-senha');
+    sf?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (sf.dataset.salvando) return;
+        const d = new FormData(sf),
+            atual = d.get('atual'),
+            nova = d.get('nova');
+        if (!atual || !nova || nova.length < 8 || nova !== d.get('confirmacao'))
+            return erroForm(
+                sf,
+                'Informe a senha atual e confirme a nova senha com ao menos 8 caracteres.'
+            );
+        const ok = await executar(
+            sf,
+            async () => {
+                const fb = window.fb,
+                    user = fb.auth.currentUser;
+                if (!user?.email) throw Error('Sessão expirada.');
+                await fb.reauthenticateWithCredential(
+                    user,
+                    fb.EmailAuthProvider.credential(user.email, atual)
+                );
+                await fb.updatePassword(user, nova);
+            },
+            'Senha atualizada.'
+        );
+        sf.reset();
+        if (!ok)
+            erroForm(
+                sf,
+                'Não foi possível alterar a senha. Confira a senha atual, a conexão e a política de senha do projeto.'
+            );
+    });
+    $('#pref-ajuda')?.addEventListener('click', () =>
+        abrirModal({
+            titulo: 'Orientações do sistema',
+            corpo: '<p class="conf-texto">Cadastre empresa, horários, cargos e departamentos antes de vincular os funcionários. Em Movimentações, acompanhe o cartão ponto e gere relatórios.</p><p class="conf-nota">Sua conta acessa apenas a própria empresa. Envio de e-mails de alertas e cobrança ainda não estão integrados.</p>'
+        })
+    );
 }
