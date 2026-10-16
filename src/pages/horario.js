@@ -6,10 +6,10 @@ import { toast } from '../core/ui.js';
 
 const DIAS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 const inicial = () => ({ nome: '', modo: 'semanal', dias: DIAS.map((nome, i) => ({ nome, ativo: i < 5, horarios: ['08:00', '12:00', '13:00', '17:00'] })), carga: '08:00', intervalo: 60, tolerancia: 10, compensacao: true, classificacao: 'util' });
-let dados = inicial(), editId = null, erro = '', salvando = false;
+let dados = inicial(), editId = null, erro = '', salvando = false, formulario = false;
 const nomePerfil = (h, id) => h.nome || (id === 'padrao' ? 'Perfil Padrão' : 'Horário sem nome');
 function normalizar(v) { const base = inicial(); return { ...base, ...copia(v), dias: base.dias.map((d, i) => ({...d, ...(v.dias?.[i] || {}), horarios: v.dias?.[i]?.horarios || d.horarios})) }; }
-function limpar() { dados = inicial(); editId = null; erro = ''; }
+function limpar() { dados = inicial(); editId = null; erro = ''; formulario = false; }
 window.addEventListener('hashchange', () => { if (location.hash === '#horario' && !salvando) limpar(); });
 const copia = obj => JSON.parse(JSON.stringify(obj));
 const min = h => /^([01]\d|2[0-3]):[0-5]\d$/.test(h || '') ? Number(h.slice(0, 2)) * 60 + Number(h.slice(3)) : NaN;
@@ -38,7 +38,8 @@ function carga() {
 export function view() {
     const pronto = carregado('horarios', 'funcionarios');
     const lista = itens('horarios');
-    return `<div class="horario-page"><div class="breadcrumb"><span>Cadastro</span><span>›</span><span class="destacado">Horário</span></div><div class="cabecalho-pagina"><div><h1>Cadastro de Horários</h1><p>Cadastre e identifique os perfis de jornada da sua equipe.</p></div><button class="btn btn-secundario" id="hor-novo" ${salvando ? 'disabled' : ''}>+ Novo Horário</button></div><fieldset class="hor-fieldset" ${!pronto || salvando ? 'disabled' : ''}><section class="hor-card hor-identificacao"><label for="hor-nome">Nome do Horário <span aria-hidden="true">*</span></label><input id="hor-nome" maxlength="80" value="${esc(dados.nome)}" placeholder="Ex.: Administrativo — 08h às 17h" required aria-describedby="hor-nome-ajuda hor-erro"><small id="hor-nome-ajuda">Este nome aparecerá na seleção de horário do funcionário.</small>${editId ? '<span class="cad-pill">Editando horário salvo</span>' : ''}</section>${dados.modo === 'semanal' ? semanal() : carga()}<p id="hor-erro" class="erro" role="alert" tabindex="-1" ${erro ? '' : 'hidden'}>${esc(erro)}</p><footer class="hor-rodape"><button type="button" class="hor-cancelar" id="hor-cancelar">Cancelar</button><button type="button" class="btn btn-primario hor-salvar" id="hor-salvar">${salvando ? 'Salvando…' : !pronto ? 'Carregando…' : editId ? 'Salvar Alterações' : 'Salvar Horário'}</button></footer></fieldset><section class="cad-card cad-lista hor-cadastrados"><header class="cad-card-topo"><h2>Horários cadastrados</h2><span class="cad-pill">${lista.length}</span></header>${!pronto ? '<p class="cad-vazio">Carregando horários…</p>' : !lista.length ? '<p class="cad-vazio">Nenhum horário salvo. Preencha o nome e a jornada acima.</p>' : `<div class="cad-tabela-wrap"><table class="cad-tabela"><thead><tr><th>Nome</th><th>Tipo de jornada</th><th>Funcionários ativos</th><th>Ações</th></tr></thead><tbody>${lista.map(h => `<tr data-busca><td><strong>${esc(nomePerfil(h, h.id))}</strong></td><td>${h.modo === 'carga' ? 'Carga horária' : 'Horário semanal'}</td><td>${Object.values(state.funcionarios || {}).filter(f => f.horarioId === h.id && f.status !== 'desligado').length}</td><td><div class="acoes-linha"><button class="btn-ajustar" data-hor-editar="${esc(h.id)}" ${salvando ? 'disabled' : ''}>Editar</button><button class="btn btn-perigo cad-btn-peq" data-hor-excluir="${esc(h.id)}" ${salvando ? 'disabled' : ''}>Excluir</button></div></td></tr>`).join('')}</tbody></table></div>`}</section></div>`;
+    if(!formulario)return `<div class="cad-page"><div class="breadcrumb"><span>Cadastro</span><span>›</span><span class="destacado">Horários</span></div><div class="cabecalho-pagina"><div><h1>Horários</h1><p>${lista.length} cadastrados</p></div><button class="btn btn-primario" id="hor-novo" ${!pronto || salvando?'disabled':''}>+ Novo horário</button></div><section class="cad-card cad-lista hor-cadastrados"><header class="cad-card-topo"><h2>Horários cadastrados</h2><span class="cad-pill">${lista.length}</span></header>${!pronto ? '<p class="cad-vazio">Carregando horários…</p>' : !lista.length ? '<p class="cad-vazio">Nenhum horário cadastrado. Clique em Novo horário para começar.</p>' : `<div class="cad-tabela-wrap"><table class="cad-tabela"><thead><tr><th>Nome</th><th>Tipo de jornada</th><th>Funcionários ativos</th><th>Ações</th></tr></thead><tbody>${lista.map(h => `<tr data-busca><td><strong>${esc(nomePerfil(h, h.id))}</strong></td><td>${h.modo === 'carga' ? 'Carga horária' : 'Horário semanal'}</td><td>${Object.values(state.funcionarios || {}).filter(f => f.horarioId === h.id && f.status !== 'desligado').length}</td><td><div class="acoes-linha"><button class="btn-ajustar" data-hor-editar="${esc(h.id)}" ${salvando ? 'disabled' : ''}>Editar</button><button class="btn btn-perigo cad-btn-peq" data-hor-excluir="${esc(h.id)}" ${salvando ? 'disabled' : ''}>Excluir</button></div></td></tr>`).join('')}</tbody></table></div>`}</section></div>`;
+    return `<div class="horario-page"><div class="breadcrumb"><span>Cadastro</span><span>›</span><span class="destacado">Horário</span></div><div class="cabecalho-pagina"><div><h1>Cadastro de Horários</h1><p>Cadastre e identifique os perfis de jornada da sua equipe.</p></div><button class="btn btn-secundario" id="hor-novo" ${salvando ? 'disabled' : ''}>+ Novo Horário</button></div><fieldset class="hor-fieldset" ${!pronto || salvando ? 'disabled' : ''}><section class="hor-card hor-identificacao"><label for="hor-nome">Nome do Horário <span aria-hidden="true">*</span></label><input id="hor-nome" maxlength="80" value="${esc(dados.nome)}" placeholder="Ex.: Administrativo — 08h às 17h" required aria-describedby="hor-nome-ajuda hor-erro"><small id="hor-nome-ajuda">Este nome aparecerá na seleção de horário do funcionário.</small>${editId ? '<span class="cad-pill">Editando horário salvo</span>' : ''}</section>${dados.modo === 'semanal' ? semanal() : carga()}<p id="hor-erro" class="erro" role="alert" tabindex="-1" ${erro ? '' : 'hidden'}>${esc(erro)}</p><footer class="hor-rodape"><button type="button" class="hor-cancelar" id="hor-cancelar">Cancelar</button><button type="button" class="btn btn-primario hor-salvar" id="hor-salvar">${salvando ? 'Salvando…' : !pronto ? 'Carregando…' : editId ? 'Salvar Alterações' : 'Salvar Horário'}</button></footer></fieldset></div>`;
 }
 function atualizarTotais() {
     dados.dias.forEach((d, i) => { const el = $(`[data-total="${i}"]`); if (el) el.textContent = totalDia(d) === null ? '—' : fmt(totalDia(d)); });
@@ -63,13 +64,13 @@ function validar() {
     return '';
 }
 export function bind({ render }) {
-    $('#hor-nome').addEventListener('input', e => { dados.nome = e.target.value; if ($('#hor-perfil-nome')) $('#hor-perfil-nome').textContent = dados.nome || 'Novo horário'; });
-    $('#hor-novo').addEventListener('click', () => { if (salvando) return; limpar(); render(); $('#hor-nome').focus(); });
+    $('#hor-nome')?.addEventListener('input', e => { dados.nome = e.target.value; if ($('#hor-perfil-nome')) $('#hor-perfil-nome').textContent = dados.nome || 'Novo horário'; });
+    $('#hor-novo').addEventListener('click', () => { if (salvando) return; limpar(); formulario=true; render(); $('#hor-nome').focus(); });
     $$('[data-hor-editar]').forEach(b => b.addEventListener('click', () => {
         if (salvando) return;
         const id = b.dataset.horEditar, perfil = state.horarios?.[id];
         if (!perfil) return toast('Este horário não está mais disponível.', 'erro');
-        editId = id; dados = normalizar(perfil); dados.nome = nomePerfil(perfil, id); erro = ''; render(); $('#hor-nome').focus(); $('#view').scrollTop = 0;
+        formulario=true; editId = id; dados = normalizar(perfil); dados.nome = nomePerfil(perfil, id); erro = ''; render(); $('#hor-nome').focus(); $('#view').scrollTop = 0;
     }));
     $$('[data-hor-excluir]').forEach(b => b.addEventListener('click', async () => {
         if (salvando || !carregado('horarios', 'funcionarios')) return;
@@ -81,6 +82,7 @@ export function bind({ render }) {
         catch { toast('Não foi possível excluir o horário.', 'erro'); }
         finally { salvando = false; if (location.hash === '#horario') render(); }
     }));
+    if(!formulario)return;
     $$('[data-modo]').forEach(b => b.addEventListener('click', () => { dados.modo = b.dataset.modo; erro = ''; render(); $(`#hor-tab-${dados.modo}`)?.focus(); }));
     $$('.hor-abas [role=tab]').forEach(b => b.addEventListener('keydown', e => { if (['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) { e.preventDefault(); const modo = e.key === 'Home' ? 'semanal' : e.key === 'End' ? 'carga' : dados.modo === 'semanal' ? 'carga' : 'semanal'; dados.modo = modo; render(); $(`#hor-tab-${modo}`)?.focus(); } }));
     $$('[data-dia]').forEach(el => el.addEventListener('change', () => { dados.dias[Number(el.dataset.dia)].ativo = el.checked; render(); }));
@@ -97,7 +99,7 @@ export function bind({ render }) {
         salvando = true; render();
         try {
             await gravar(`horarios/${id}`, payload);
-            editId = id; dados = normalizar(payload);
+            limpar();
             toast('Horário salvo.');
         } catch { erro = 'Não foi possível salvar o horário. Tente novamente.'; toast(erro, 'erro'); }
         finally { salvando = false; if (location.hash === '#horario') render(); }

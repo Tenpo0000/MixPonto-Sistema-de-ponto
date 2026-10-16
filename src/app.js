@@ -37,7 +37,7 @@ function iniciar(){
  $('#icone-busca').innerHTML=ICONES.busca;$('#sino').innerHTML=ICONES.sino;$('#sino').addEventListener('click',()=>{const n=pendencias();toast(n?`${n} faltas aguardando justificativa nos últimos 31 dias.`:'Nenhuma pendência.');});
  const con=$('#conexao');con.textContent=usandoFirebase?'Firebase':'Modo local';con.classList.toggle('local',!usandoFirebase);
  $('#busca').addEventListener('input',e=>{termoBusca=e.target.value;if(viewAtual==='movimentacoes'&&termoBusca.trim()){const t=termoBusca.trim().toLowerCase(),achou=funcionariosAtivos().find(f=>f.nome.toLowerCase().includes(t));if(achou&&achou.id!==movimentacoes.mov.uid){movimentacoes.mov.uid=achou.id;render();}}else aplicarBusca();});
- ['funcionarios','registros','ajustes','feriados','config','empresa','horarios','cargos','departamentos','justificativas','desligamentos','usuarios'].forEach(p=>db.listen(p,v=>{state[p]=v||{};state.carregados[p]=true;agendar();}));
+ ['funcionarios','registros','ajustes','feriados','config','empresa','empresas','horarios','cargos','departamentos','justificativas','desligamentos','usuarios'].forEach(p=>db.listen(p,v=>{state[p]=v||{};state.carregados[p]=true;agendar();}));
  db.listen(`preferencias/${perfilId()}`,v=>{state.preferencias=v||{};state.carregados.preferencias=true;agendar();});
  window.addEventListener('hashchange',rota);rota();
 }

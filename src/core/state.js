@@ -1,6 +1,6 @@
 /* Estado e regras do cartão ponto. Preserva os exports usados pelas páginas anteriores. */
 import { pad, dateKey, parseKey, lista, porNome } from './utils.js';
-export const state = { funcionarios:{},registros:{},ajustes:{},feriados:{},config:{},empresa:{},cargos:{},departamentos:{},horarios:{},justificativas:{},desligamentos:{},usuarios:{},preferencias:{},carregados:{} };
+export const state = { funcionarios:{},registros:{},ajustes:{},feriados:{},config:{},empresa:{},empresas:{},cargos:{},departamentos:{},horarios:{},justificativas:{},desligamentos:{},usuarios:{},preferencias:{},carregados:{} };
 export const cfg=()=>({jornada:8,tolerancia:10,diasTrabalho:'12345',...state.config});
 export const funcionariosAtivos=()=>lista(state.funcionarios).filter(f=>f.status!=='desligado').sort(porNome);
 export function batidas(uid,key){const o=state.registros?.[key]?.[uid];return !o?[]:Object.entries(o).map(([id,r])=>({id,...r})).filter(r=>r.timestamp).sort((a,b)=>a.timestamp<b.timestamp?-1:a.timestamp>b.timestamp?1:0);}
