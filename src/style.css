@@ -1567,3 +1567,90 @@ svg.ico { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-widt
 #auth-submit { width: 100%; min-height: 43px; }#auth-mensagem { font-size: 12px; line-height: 1.7; color: #32765b; overflow-wrap: anywhere; margin: 17px 0 7px; }#auth-mensagem:empty { display: none; }#auth-mensagem.auth-erro { color: #bc2436; }
 .auth-cartao>.mov-link { display: block; padding: 8px 0; text-align: left; font-size: 12px; }.sessao-email { font-size: 11px; color: #6a7791; max-width: 190px; overflow: hidden; text-overflow: ellipsis; }.btn-sair { padding: 7px 12px; font-size: 11px; }
 @media(max-width:900px){.sessao-email { display:none; }}@media(max-width:500px){.auth-cartao { padding:26px 22px; }.auth-cartao input:not([type=checkbox]){font-size:16px;}.info-usuario{gap:9px;}}
+
+
+/* ===== Visual simplificado: ações sem fundo e informações sem etiquetas ===== */
+.btn, .btn:hover, .btn:active, .btn:focus-visible,
+.btn-ajustar, .btn-ajustar:hover, .btn-ajustar:active, .btn-ajustar:focus-visible,
+.btn-icone, .btn-icone:hover, .btn-folha, .btn-folha:hover,
+.emp-cancelar, .hor-cancelar, .conf-editar {
+    background: transparent !important;
+    border: 0;
+    box-shadow: none !important;
+}
+.btn.btn-primario, .btn.btn-primario:hover { color: var(--cor-primaria); }
+.btn.btn-secundario, .btn.btn-secundario:hover { color: #111; }
+.btn.btn-perigo, .btn.btn-perigo:hover { color: #b42318; }
+.btn-ajustar, .btn-ajustar:hover { color: var(--cor-primaria); }
+.btn:not(:disabled):hover, .btn-ajustar:not(:disabled):hover,
+.btn-folha:not(:disabled):hover, .conf-editar:not(:disabled):hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.btn:focus-visible, .btn-ajustar:focus-visible, .btn-icone:focus-visible,
+.btn-folha:focus-visible, .emp-cancelar:focus-visible, .hor-cancelar:focus-visible,
+.conf-editar:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+}
+.cad-pill, .cad-pill-verde, .cad-pill-neutra,
+.badge, .badge.ativo, .badge.desligado, .mov-tabela .badge,
+.mov-badge, .mov-badge-verde, .mov-badge-vermelho, .mov-badge-neutro,
+.conf-papel, .conf-papel-administrador, .conf-papel-rh, .conf-papel-visualizador,
+.conf-perfil-identidade>div>small {
+    background: transparent !important;
+    color: #111;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+}
+.cad-tabela code { background: transparent; padding: 0; border: 0; }
+/* Os quatro indicadores do cartão ponto passam a ser resumos em texto. */
+.mov-kpis-limpos .mov-kpi, .mov-kpis-limpos .mov-kpi * {
+    background: transparent !important;
+    color: #111 !important;
+    border: 0;
+    box-shadow: none;
+}
+.mov-kpis-limpos .mov-kpi { border-radius: 0; padding: 16px 0; }
+.mov-kpis-limpos .mov-badge { padding: 0; font-size: 17px; line-height: 1.3; }
+
+
+/* ===== Movimentações e Configurações: mesma apresentação neutra dos cadastros ===== */
+.mov-page :is(.mov-kpi,.mov-card,.mov-insight,.mov-insight-escuro,.mov-exportar,.mov-filtros),
+.conf-page :is(.conf-card,.conf-indicador,.conf-status,.conf-ajuda) {
+    background: transparent !important;
+    color: #111;
+    border: 0;
+    box-shadow: none;
+}
+.mov-page :is(.mov-kpi,.mov-card,.mov-insight,.mov-insight-escuro,.mov-exportar) :is(h2,h3,p,strong,small),
+.conf-page :is(.conf-card,.conf-indicador,.conf-status,.conf-ajuda) :is(h2,h3,p,strong,small),
+.mov-page :is(.mov-vermelho,.mov-texto-verde,.mov-texto-azul),
+.conf-page :is(.conf-azul,.conf-verde,.conf-vermelho,.conf-neutro) {
+    color: #111 !important;
+}
+.mov-page .mov-kpi { padding: 16px 0; }
+.conf-page .conf-indicador { padding: 16px 0; min-height: 110px; }
+.mov-page .mov-tabela :is(th,.linha-falta),
+.conf-page .conf-tabela th { background: transparent; }
+.conf-page .conf-status header>small {
+    background: transparent; color: #111; padding: 0; border-radius: 0;
+}
+.conf-page .conf-status progress { background: #e5e7eb; }
+.conf-page .conf-status progress::-webkit-progress-bar { background: #e5e7eb; }
+.conf-page .conf-status progress::-webkit-progress-value { background: #555; }
+.conf-page .conf-status progress::-moz-progress-bar { background: #555; }
+.conf-page .conf-editar { font-size: 12px; }
+.mov-page .mov-avatar, .conf-page .conf-avatar {
+    background: transparent !important; color: #111; border: 0;
+}
+@media (min-width: 1101px) {
+    .mov-filtros-grid { grid-template-columns: repeat(3,minmax(0,1fr)) 100px 100px; }
+}
+
+/* Ações discretas junto às batidas incluídas manualmente. */
+.mov-acoes-manual { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 7px; }
+.mov-acoes-manual .btn, .mov-acoes-manual .btn-ajustar { padding: 4px 0; font-size: 11px; min-height: 28px; }
+@media print { .mov-acoes-manual { display: none !important; } }

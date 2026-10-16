@@ -14,6 +14,7 @@ export const db={
  novoId(path){return fb.push(referencia(path)).key;},
  remove(path){return fb.remove(referencia(path));},
  async update(mudancas){sessao();if(!mudancas||typeof mudancas!=='object'||Array.isArray(mudancas))throw Error('Atualização inválida.');for(const p of Object.keys(mudancas))validarPath(p);await fb.update(fb.ref(fb.db,base),mudancas);},
+ transacao(path,atualizar){return fb.runTransaction(referencia(path),atual=>{sessao();return atualizar(atual);},{applyLocally:false});},
  destroy(){encerrado=true;for(const off of assinaturas)off();assinaturas.clear();}
 };
 window.addEventListener('mixponto:encerrar',()=>db.destroy());

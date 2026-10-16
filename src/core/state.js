@@ -1,3 +1,5 @@
+import { inicioControle } from './controle-ponto.js';
+import { totalJornada, inicioJornada } from './jornada.js';
 /* Estado e regras do cartão ponto. Preserva os exports usados pelas páginas anteriores. */
 import { pad, dateKey, parseKey, lista, porNome } from './utils.js';
 export const state = { funcionarios:{},registros:{},ajustes:{},feriados:{},config:{},empresa:{},empresas:{},cargos:{},departamentos:{},horarios:{},justificativas:{},desligamentos:{},usuarios:{},preferencias:{},carregados:{} };
@@ -9,12 +11,12 @@ export const feriadoDe=(key,f)=>lista(state.feriados).filter(x=>x.data===key&&(!
 function perfil(f){return f?.horarioId?state.horarios?.[f.horarioId]:null;}
 export function horarioDoDia(f,date){const h=perfil(f);if(!h||h.modo!=='semanal')return null;const indice=(date.getDay()+6)%7;return h.dias?.[indice]||null;}
 export function desligadoNaData(f,key){if(!f?.id)return false;if(f.status==='desligado'&&f.demissao&&key>f.demissao)return true;return Object.values(state.desligamentos||{}).some(e=>e.uid===f.id&&e.demissao&&key>e.demissao&&(e.status!=='reativado'||!e.reativadoEm||key<e.reativadoEm));}
-export function diaUtil(date,f){if(desligadoNaData(f,dateKey(date)))return false;const h=perfil(f),dia=horarioDoDia(f,date);const trabalha=dia?dia.ativo:h?.modo==='carga'&&h.classificacao==='folga'?false:String(cfg().diasTrabalho).includes(String(date.getDay()));return !!trabalha&&!feriadoDe(dateKey(date),f);}
-export function cargaPrevista(f,date){const h=perfil(f),dia=horarioDoDia(f,date);if(!diaUtil(date,f))return 0;if(dia){const t=(dia.horarios||[]).map(v=>{const [a,b]=String(v).split(':').map(Number);return a*60+b;});return t.length===4&&t.every(Number.isFinite)?Math.max(0,t[1]-t[0]+t[3]-t[2]):0;}if(h?.modo==='carga'){const [a,b]=String(h.carga||'00:00').split(':').map(Number);return Number.isFinite(a*60+b)?a*60+b:0;}return Number(cfg().jornada)*60;}
+export function diaUtil(date,f){if(f&&(!inicioControle(f)||dateKey(date)<inicioControle(f)))return false;if(desligadoNaData(f,dateKey(date)))return false;const h=perfil(f),dia=horarioDoDia(f,date);const trabalha=dia?dia.ativo:h?.modo==='carga'&&h.classificacao==='folga'?false:String(cfg().diasTrabalho).includes(String(date.getDay()));return !!trabalha&&!feriadoDe(dateKey(date),f);}
+export function cargaPrevista(f,date){const h=perfil(f),dia=horarioDoDia(f,date);if(!diaUtil(date,f))return 0;if(dia)return totalJornada(dia.horarios)??0;if(h?.modo==='carga'){const [a,b]=String(h.carga||'00:00').split(':').map(Number);return Number.isFinite(a*60+b)?a*60+b:0;}return Number(cfg().jornada)*60;}
 export function analisarDia(f,key){
- const date=parseKey(key),hoje=dateKey(new Date()),bs=batidas(f.id,key),ajuste=state.ajustes?.[key]?.[f.id],feriado=feriadoDe(key,f);let tipo;
- if(bs.length)tipo='trabalho';else if(f.admissao&&key<f.admissao)tipo='antes';else if(desligadoNaData(f,key))tipo='apos';else if(feriado)tipo='feriado';else if(!diaUtil(date,f))tipo='folga';else if(key>hoje)tipo='futuro';else if(key===hoje)tipo=ajuste?'justificado':'pendente';else tipo=ajuste?'justificado':'falta';
- const h=perfil(f),dia=horarioDoDia(f,date),entrada=dia?.horarios?.[0]||f.entrada;let atraso=false;
+ const date=parseKey(key),hoje=dateKey(new Date()),inicio=inicioControle(f),anterior=!inicio||key<inicio,bs=anterior?[]:batidas(f.id,key),ajuste=anterior?undefined:state.ajustes?.[key]?.[f.id],feriado=feriadoDe(key,f);let tipo;
+ if(anterior)tipo='antes';else if(bs.length)tipo='trabalho';else if(desligadoNaData(f,key))tipo='apos';else if(feriado)tipo='feriado';else if(!diaUtil(date,f))tipo='folga';else if(key>hoje)tipo='futuro';else if(key===hoje)tipo=ajuste?'justificado':'pendente';else tipo=ajuste?'justificado':'falta';
+ const h=perfil(f),dia=horarioDoDia(f,date),entrada=inicioJornada(dia?.horarios)||f.entrada;let atraso=false;
  // Carga horária flexível não possui uma entrada fixa para medir atraso.
  if(bs.length&&entrada&&h?.modo!=='carga'){const [hh,mm]=entrada.split(':').map(Number),t=new Date(bs[0].timestamp);const tolerancia=Number(h?.tolerancia??cfg().tolerancia);atraso=t.getHours()*60+t.getMinutes()>hh*60+mm+tolerancia;}
  const contarComoFalta=tipo==='justificado'&&!!ajuste?.contarComoFalta;
