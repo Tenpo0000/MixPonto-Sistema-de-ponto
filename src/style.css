@@ -3202,6 +3202,15 @@ svg.ico {
 .mov-cartao {
     margin-top: 5px;
 }
+.mov-cartao .mov-tabela tbody td {
+    border-bottom: 0;
+}
+.mov-cartao .mov-tabela tbody tr:nth-child(odd) > td {
+    background: #e7ecf3;
+}
+.mov-cartao .mov-tabela tbody tr:nth-child(even) > td {
+    background: #fff;
+}
 .mov-estatisticas {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
