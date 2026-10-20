@@ -1,3 +1,7 @@
+import { auth, db } from '../fireBase_config.js';
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+import { ref, onValue } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+import { dayKey, mergeRecords, workedMinutes, ZONE } from './core/batidas.mjs';
 class SistemaPonto {
     constructor() {
         this.inicializar();
@@ -77,80 +81,80 @@ class SistemaPonto {
     
 
     carregarDados() {
-    // Pega a data de hoje no formato YYYY-MM-DD
-        const hoje = new Date().toISOString().split('T')[0];
-        const caminhoHoje = `registros/${hoje}`;
-
-        const refRegistros = window.ref(window.db, caminhoHoje);
-
-        window.onValue(refRegistros, (snapshot) => {
-            const dados = snapshot.val();
-            const tbody = document.getElementById('corpo-tabela');
-
-            if (!dados) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="8" style="text-align:center; padding:30px; color:#999;">
-                            Nenhum registro encontrado hoje.
-                        </td>
-                    </tr>`;
+        this.sources = { legacy: {}, mobile: {}, employees: {} };
+        this.unsubscribers = [];
+        for (const id of ['data-inicial', 'data-final']) {
+            const input = document.getElementById(id);
+            input.value = dayKey();
+            input.addEventListener('change', () => this.renderRecords());
+        }
+        onAuthStateChanged(auth, (user) => {
+            this.unsubscribers.forEach((unsubscribe) => unsubscribe());
+            this.unsubscribers = [];
+            this.sources = { legacy: {}, mobile: {}, employees: {} };
+            this.renderRecords();
+            if (!user) {
+                document.querySelector('.rodape-tabela').textContent = 'Entre como titular em Acesso pelo celular para consultar o cartão ponto.';
                 return;
             }
-            console.log("Snapshot recebido:", dados);
-
-            // Agrupa as batidas por UID (funcionário)
-            const funcionarios = {};
-
-            Object.entries(dados).forEach(([uid, batidasObj]) => {
-                Object.values(batidasObj).forEach(registro => {
-                    if (!funcionarios[uid]) {
-                        funcionarios[uid] = { nome: registro.nome, batidas: [] };
-                    }
-                    funcionarios[uid].batidas.push(registro.timestamp);
-                });
-            });
-
-
-            // Ordena batidas por horário
-            Object.values(funcionarios).forEach(f => {
-                f.batidas.sort();
-            });
-
-            // Renderiza as linhas
-            tbody.innerHTML = '';
-
-            Object.values(funcionarios).forEach(func => {
-                const batidas = func.batidas;
-                const entrada1 = batidas[0] ? this.formatarHora(batidas[0]) : '-----';
-                const saida1   = batidas[1] ? this.formatarHora(batidas[1]) : '-----';
-                const entrada2 = batidas[2] ? this.formatarHora(batidas[2]) : '-----';
-                const saida2   = batidas[3] ? this.formatarHora(batidas[3]) : '-----';
-                const total    = this.calcularTotal(batidas);
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="dia">
-                        <span class="numero">${func.nome}</span>
-                        <small>${hoje}</small>
-                    </td>
-                    <td>${entrada1}</td>
-                    <td>${saida1}</td>
-                    <td>${entrada2}</td>
-                    <td>${saida2}</td>
-                    <td class="total">${total}</td>
-                    <td>—</td>
-                    <td><button class="btn-ajustar">Ajustar</button></td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            // Reconfigura botões de ajuste
-            this.configurarBotoes();
-            document.querySelector('.rodape-tabela').textContent =
-                `Exibindo ${Object.keys(funcionarios).length} funcionário(s) hoje`;
+            for (const [key, path] of [['legacy', 'registros'], ['mobile', 'batidasMobile'], ['employees', 'funcionarios']]) {
+                this.unsubscribers.push(onValue(ref(db, `contas/${user.uid}/${path}`), (snapshot) => {
+                    this.sources[key] = snapshot.val() || {};
+                    this.renderRecords();
+                }, () => {
+                    this.sources = { legacy: {}, mobile: {}, employees: {} };
+                    this.renderRecords();
+                    document.querySelector('.rodape-tabela').textContent = 'Acesso recusado. Confira o login titular, a conexão e as regras do banco.';
+                }));
+            }
         });
     }
 
+    renderRecords() {
+        const start = document.getElementById('data-inicial').value;
+        const end = document.getElementById('data-final').value;
+        const tbody = document.getElementById('corpo-tabela');
+        tbody.replaceChildren();
+        if (!start || !end || start > end) {
+            document.querySelector('.rodape-tabela').textContent = 'Informe um intervalo válido, incluindo a data inicial e a final.';
+            return;
+        }
+        this.records = mergeRecords(this.sources.legacy, this.sources.mobile, start, end);
+        const groups = new Map();
+        for (const record of this.records) {
+            const key = `${record.dia}/${record.funcionarioId}`;
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(record);
+        }
+        for (const records of groups.values()) {
+            const first = records[0];
+            const employee = this.sources.employees[first.funcionarioId];
+            const beforeAdmission = employee?.admissao && first.dia < employee.admissao;
+            const tr = document.createElement('tr');
+            const values = [
+                `${employee?.nome || first.nome || first.funcionarioId} · ${first.dia}`,
+                ...[0, 1, 2, 3].map((i) => records[i] ? new Date(records[i].ms).toLocaleTimeString('pt-BR', { timeZone: ZONE, hour: '2-digit', minute: '2-digit' }) : '-----'),
+                beforeAdmission ? 'Anterior ao cadastro' : this.minutesText(workedMinutes(records)),
+                records.map((r) => `${new Date(r.ms).toLocaleTimeString('pt-BR', { timeZone: ZONE })} ${r.origem === 'android' ? 'Celular' : r.origem === 'manual' ? 'Manual' : 'RFID'}`).join(' · '),
+                beforeAdmission ? 'Bloqueado' : '—',
+            ];
+            for (const value of values) {
+                const td = document.createElement('td');
+                td.textContent = value;
+                tr.append(td);
+            }
+            tbody.append(tr);
+        }
+        const valid = this.records.filter((r) => !this.sources.employees[r.funcionarioId]?.admissao || r.dia >= this.sources.employees[r.funcionarioId].admissao);
+        document.querySelector('.cards-info .valor').textContent = this.minutesText(workedMinutes(valid));
+        document.querySelector('.rodape-tabela').textContent = `${this.records.length} batida(s) · ${start} a ${end} · Horário de Brasília`;
+        this.filtrarRegistros(document.querySelector('.busca').value.toLowerCase());
+    }
+
+    minutesText(total) {
+        const minutes = Math.floor(total);
+        return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+    }
     filtrarRegistros(termo) {
         const linhas = document.querySelectorAll('table tbody tr');
         
@@ -223,7 +227,7 @@ class SistemaPonto {
         const botaoSalvar = document.querySelector('.salvar-inclusao');
         if (botaoSalvar) {
             botaoSalvar.addEventListener('click', () => {
-                this.exibirNotificacao('Ponto incluído com sucesso!');
+                this.exibirNotificacao('Esta versão antiga do site não contém gravação manual. Recupere o módulo administrativo antes de usar esta ação.');
                 this.fecharModal();
             });
         }
@@ -279,17 +283,14 @@ class SistemaPonto {
         const botaoSalvar = document.querySelector('.salvar-ajuste');
         if (botaoSalvar) {
             botaoSalvar.addEventListener('click', () => {
-                this.exibirNotificacao('Ajuste realizado com sucesso!');
+                this.exibirNotificacao('O módulo de ajustes não está implementado nesta versão do site. Nenhum dado foi gravado.');
                 this.fecharModal();
             });
         }
     }
 
     exportarPDF() {
-        this.exibirNotificacao('Gerando PDF do cartão de ponto...');
-        setTimeout(() => {
-            this.exibirNotificacao('PDF exportado com sucesso!');
-        }, 1500);
+        window.print();
     }
 
     renderizarModal(conteudo) {
@@ -333,143 +334,4 @@ class SistemaPonto {
 document.addEventListener('DOMContentLoaded', () => {
     new SistemaPonto();
 
-    const estilosModal = `
-        <style>
-            #modal-container {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                z-index: 1000;
-            }
-
-            .modal-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background-color: rgba(0, 0, 0, 0.5);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 1000;
-            }
-
-            .modal {
-                background-color: white;
-                border-radius: 8px;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-                max-width: 500px;
-                width: 90%;
-                display: flex;
-                flex-direction: column;
-                max-height: 90vh;
-                overflow-y: auto;
-            }
-
-            .modal-header {
-                padding: 20px;
-                border-bottom: 1px solid #e0e0e0;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-
-            .modal-header h2 {
-                font-size: 18px;
-                margin: 0;
-            }
-
-            .fechar-modal {
-                background: none;
-                border: none;
-                font-size: 24px;
-                cursor: pointer;
-                color: #666;
-                padding: 0;
-                width: 24px;
-                height: 24px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .fechar-modal:hover {
-                color: #333;
-            }
-
-            .modal-corpo {
-                padding: 20px;
-                flex: 1;
-            }
-
-            .grupo-formulario {
-                margin-bottom: 16px;
-            }
-
-            .grupo-formulario label {
-                display: block;
-                font-size: 13px;
-                font-weight: 600;
-                margin-bottom: 6px;
-                color: #333;
-            }
-
-            .grupo-formulario input,
-            .grupo-formulario select,
-            .grupo-formulario textarea {
-                width: 100%;
-                padding: 8px 12px;
-                border: 1px solid #e0e0e0;
-                border-radius: 6px;
-                font-size: 13px;
-                font-family: inherit;
-            }
-
-            .grupo-formulario input:focus,
-            .grupo-formulario select:focus,
-            .grupo-formulario textarea:focus {
-                outline: none;
-                border-color: #0052cc;
-                box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1);
-            }
-
-            .linha-formulario {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 12px;
-            }
-
-            .modal-rodape {
-                padding: 20px;
-                border-top: 1px solid #e0e0e0;
-                display: flex;
-                gap: 12px;
-                justify-content: flex-end;
-            }
-
-            .notificacao {
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                background-color: #333;
-                color: white;
-                padding: 14px 20px;
-                border-radius: 6px;
-                font-size: 13px;
-                opacity: 0;
-                transition: opacity 0.3s ease;
-                z-index: 2000;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            }
-
-            .notificacao.visivel {
-                opacity: 1;
-            }
-        </style>
-    `;
-
-    document.head.insertAdjacentHTML('beforeend', estilosModal);
 });

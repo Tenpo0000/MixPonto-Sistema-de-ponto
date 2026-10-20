@@ -521,3 +521,150 @@ html, body {
         padding: 10px;
     }
 }
+
+.mobile-admin { max-width: 900px; margin: 40px auto; padding: 24px; background: white; border-radius: 12px; }
+.mobile-admin h1, .mobile-admin h2, .mobile-admin p { margin: 16px 0; }
+.mobile-form { display: grid; gap: 16px; margin: 24px 0; }
+.mobile-form label { display: grid; gap: 8px; }
+.mobile-form input, .mobile-form select { padding: 12px; border: 1px solid var(--cor-borda); border-radius: 6px; font: inherit; }
+.mobile-admin [hidden] { display: none; }
+#mobile-feedback { color: var(--cor-primaria); }
+@media print {
+    .sidebar, .topo, .botoes-acao, .btn-ajustar, .estatisticas { display: none !important; }
+    .conteudo { margin: 0; padding: 0; }
+    .tabela-container { overflow: visible; }
+}
+
+            #modal-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1000;
+            }
+
+            .modal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+            }
+
+            .modal {
+                background-color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+                max-width: 500px;
+                width: 90%;
+                display: flex;
+                flex-direction: column;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+
+            .modal-header {
+                padding: 20px;
+                border-bottom: 1px solid #e0e0e0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .modal-header h2 {
+                font-size: 18px;
+                margin: 0;
+            }
+
+            .fechar-modal {
+                background: none;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #666;
+                padding: 0;
+                width: 24px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .fechar-modal:hover {
+                color: #333;
+            }
+
+            .modal-corpo {
+                padding: 20px;
+                flex: 1;
+            }
+
+            .grupo-formulario {
+                margin-bottom: 16px;
+            }
+
+            .grupo-formulario label {
+                display: block;
+                font-size: 13px;
+                font-weight: 600;
+                margin-bottom: 6px;
+                color: #333;
+            }
+
+            .grupo-formulario input,
+            .grupo-formulario select,
+            .grupo-formulario textarea {
+                width: 100%;
+                padding: 8px 12px;
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                font-size: 13px;
+                font-family: inherit;
+            }
+
+            .grupo-formulario input:focus,
+            .grupo-formulario select:focus,
+            .grupo-formulario textarea:focus {
+                outline: none;
+                border-color: #0052cc;
+                box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1);
+            }
+
+            .linha-formulario {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+
+            .modal-rodape {
+                padding: 20px;
+                border-top: 1px solid #e0e0e0;
+                display: flex;
+                gap: 12px;
+                justify-content: flex-end;
+            }
+
+            .notificacao {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background-color: #333;
+                color: white;
+                padding: 14px 20px;
+                border-radius: 6px;
+                font-size: 13px;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                z-index: 2000;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            }
+
+            .notificacao.visivel {
+                opacity: 1;
+            }

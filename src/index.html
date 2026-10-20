@@ -21,6 +21,7 @@
             <span class="icone"></span>
             Cadastro
           </button>
+          <a class="menu-item" href="mobile.html">Acesso pelo celular</a>
           <button class="menu-item">
             <span class="icone"></span>
             Movimentações
@@ -44,7 +45,7 @@
           <div class="info-usuario">
             <button class="notificacoes"></button>
             <div class="usuario">
-              <span>Joãozinho do RH</span>
+              <span>Titular da empresa</span>
               <small>ADMINISTRADOR</small>
             </div>
             <img src="/img/Joãzinho do RH.png" alt="Avatar" class="avatar" />
@@ -60,10 +61,12 @@
           <div class="cabecalho-pagina">
             <div>
               <h1>Cartão Ponto</h1>
-              <p>Visualização mensal: Outubro</p>
+              <p>Horário de Brasília · RFID e celular</p>
+              <label>Data inicial <input id="data-inicial" type="date"></label>
+              <label>Data final <input id="data-final" type="date"></label>
             </div>
             <div class="botoes-acao">
-              <button class="btn btn-primario">+ Inclusão Manual</button>
+              <button class="btn btn-primario" disabled title="Ajustes manuais indisponíveis nesta versão">+ Inclusão Manual</button>
               <button class="btn btn-secundario">Exportar PDF</button>
             </div>
           </div>
@@ -72,23 +75,23 @@
             <div class="card">
               <h3>Total de Horas</h3>
               <p class="valor">0h</p>
-              <small>sem extras</small>
+              <small>Pares de entrada e saída no período</small>
             </div>
             <div class="card">
               <h3>Saldo de Banco</h3>
-              <p class="valor positivo">0h</p>
-              <small>Acumulado do semestre</small>
+              <p class="valor positivo">—</p>
+              <small>Não apurado</small>
             </div>
             <div class="card">
               <h3>Faltas/Atrasos</h3>
-              <p class="valor negativo">02 registros</p>
-              <small>Aguardando justificativa</small>
+              <p class="valor negativo">—</p>
+              <small>Não apurado</small>
             </div>
             <div class="card">
               <h3>Status do Mês</h3>
-              <p class="status">EM ABERTO</p>
+              <p class="status">—</p>
               <br />
-              <small>Fechamento em 5 dias</small>
+              <small>Não apurado</small>
             </div>
           </div>
 
@@ -102,96 +105,16 @@
                   <th>ENTRADA 2</th>
                   <th>SAÍDA 2</th>
                   <th>TOTAL</th>
-                  <th>JUSTIFICATIVA / OBSERVAÇÃO</th>
+                  <th>BATIDAS / ORIGEM</th>
                   <th>AÇÕES</th>
                 </tr>
               </thead>
-              <tbody id="corpo-tabela">
-                <tr>
-                  <td class="dia">
-                    <span class="numero">01 Out</span>
-                    <small>Segunda-feira</small>
-                  </td>
-                  <td>08:02</td>
-                  <td>12:05</td>
-                  <td>13:10</td>
-                  <td>18:00</td>
-                  <td class="total">09:03</td>
-                  <td>—</td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td class="dia">
-                    <span class="numero">02 Out</span>
-                    <small>Terça-feira</small>
-                  </td>
-                  <td>08:15</td>
-                  <td class="manual">
-                    12:00 <span class="badge">Manual</span>
-                  </td>
-                  <td>13:00</td>
-                  <td>18:15</td>
-                  <td class="total">09:00</td>
-                  <td>
-                    <a href="#" class="link-acao">Esqueceu de bater o ponto</a>
-                  </td>
-                  <td></td>
-                </tr>
-                <tr class="linha-falta">
-                  <td class="dia">
-                    <span class="numero">03 Out</span>
-                    <small>Quarta-feira</small>
-                  </td>
-                  <td class="falta">FALTA</td>
-                  <td>-----</td>
-                  <td>-----</td>
-                  <td>-----</td>
-                  <td class="total negativo">00:00</td>
-                  <td><a href="#" class="link-acao">Atestado</a></td>
-                  <td><button class="btn-ajustar">Ajustar</button></td>
-                </tr>
-                <tr>
-                  <td class="dia">
-                    <span class="numero">04 Out</span>
-                    <small>Quinta-feira</small>
-                  </td>
-                  <td>07:55</td>
-                  <td>12:00</td>
-                  <td>13:00</td>
-                  <td>17:00</td>
-                  <td class="total">08:05</td>
-                  <td>—</td>
-                  <td></td>
-                </tr>
-              </tbody>
+              <tbody id="corpo-tabela"></tbody>
             </table>
-            <p class="rodape-tabela">Exibindo 4 de 31 dias registrados</p>
+            <p class="rodape-tabela">Entre como titular para carregar os registros.</p>
           </div>
 
-          <div class="estatisticas">
-            <div class="card-stat">
-              <h4>MÉDIA DE HORAS SEMANAIS</h4>
-              <div class="valor-stat">
-                0 <span class="variacao positiva">+0%</span>
-              </div>
-              <small>Em comparação com o período anterior</small>
-            </div>
-            <div class="card-stat">
-              <h4>CHEGADAS ATRASADAS</h4>
-              <div class="valor-stat">
-                0 <span class="variacao positiva">+0%</span>
-              </div>
-              <small>Em todos os departamentos</small>
-            </div>
-            <div class="card-stat">
-              <h4>SEQUÊNCIA DE PRESENÇA</h4>
-              <div class="valor-stat">
-                0 <span class="dias">dias seguidos</span>
-              </div>
-              <small>Record: 2</small>
-            </div>
-          </div>
-        </section>
+          </section>
       </main>
     </div>
 
