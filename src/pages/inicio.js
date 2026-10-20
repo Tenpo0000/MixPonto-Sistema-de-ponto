@@ -1,0 +1,196 @@
+import {
+    MESES,
+    DIAS_CURTO,
+    ROTULO_BATIDA,
+    $,
+    $$,
+    pad,
+    esc,
+    dateKey,
+    fmtMin,
+    fmtHora,
+    fmtData,
+    lista,
+    iniciais,
+    corAvatar
+} from '../core/utils.js';
+import { state, funcionariosAtivos, batidas, diaUtil, resumoMes } from '../core/state.js';
+import { toast, abrirModal } from '../core/ui.js';
+import { vazio, vazioInicialBotoes, bindIr } from '../core/componentes.js';
+
+let semanaOffset = 0;
+const card = (rotulo, valor) => `
+    <div class="card-resumo">
+        <h3>${rotulo}</h3>
+        <div class="numero-grande">${pad(valor)}</div>
+    </div>
+`;
+
+function recentes() {
+    const out = [];
+    for (let i = 0; i < 3; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const k = dateKey(d),
+            reg = state.registros?.[k];
+        if (!reg) continue;
+        Object.keys(reg).forEach((uid) =>
+            batidas(uid, k).forEach((b, idx) =>
+                out.push({
+                    nome: b.nome || state.funcionarios?.[uid]?.nome || 'Funcionário',
+                    ts: b.timestamp,
+                    idx
+                })
+            )
+        );
+    }
+    return out.sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 6);
+}
+
+function tempo(ts) {
+    const m = Math.floor((Date.now() - new Date(ts)) / 60000);
+    if (m < 1) return 'agora';
+    if (m < 60) return `${m}m atrás`;
+    if (m < 1440) return `${Math.floor(m / 60)}h atrás`;
+    if (m < 2880) return 'Ontem';
+    return fmtData(new Date(ts));
+}
+
+export function view() {
+    const hoje = new Date(),
+        key = dateKey(hoje),
+        ativos = funcionariosAtivos(),
+        trabalhando = ativos.filter((f) => batidas(f.id, key).length % 2 === 1).length,
+        faltantes = ativos.filter(
+            (f) => diaUtil(hoje, f) && !batidas(f.id, key).length && !state.ajustes?.[key]?.[f.id]
+        ).length,
+        feriados = lista(state.feriados).filter((f) =>
+            (f.data || '').startsWith(String(hoje.getFullYear()))
+        ).length,
+        folga = ativos.filter((f) => !diaUtil(hoje, f)).length;
+    const seg = new Date(hoje);
+    seg.setDate(hoje.getDate() - ((hoje.getDay() + 6) % 7) + semanaOffset * 7);
+    const semana = Array.from({ length: 6 }, (_, i) => {
+            const d = new Date(seg);
+            d.setDate(seg.getDate() + i);
+            return d;
+        }),
+        contagem = semana.map(
+            (d) => ativos.filter((f) => batidas(f.id, dateKey(d)).length > 0).length
+        ),
+        maximo = Math.max(ativos.length, 1),
+        atividades = recentes(),
+        prefixo = key.slice(0, 7),
+        registrosMes = Object.entries(state.registros || {})
+            .filter(([k]) => k.startsWith(prefixo))
+            .reduce((n, [, v]) => n + Object.keys(v || {}).length, 0);
+    return `${ativos.length ? '' : vazio('Ainda não há funcionários', 'Cadastre o primeiro funcionário ou gere dados de exemplo para ver o painel funcionando.', vazioInicialBotoes)}<div class="cards-resumo">${card('Trabalhando', trabalhando)}${card('Faltantes', faltantes)}${card('Feriados', feriados)}${card('Folga', folga)}</div><div class="painel"><div class="card-grande"><div class="card-topo"><h2>Presença na semana</h2><div class="periodo"><button class="btn-icone" data-semana="-1" aria-label="Semana anterior">‹</button><span>${fmtData(semana[0])} até ${fmtData(semana[5])}</span><button class="btn-icone" data-semana="1" aria-label="Próxima semana">›</button></div></div><div class="barras">${semana
+        .map(
+            (d, i) => `
+                <div class="barra-col${dateKey(d) === key ? ' hoje' : ''}">
+                    <span class="barra-valor">${contagem[i]}</span>
+                    <div
+                        class="barra"
+                        style="--p:${contagem[i] / maximo}"
+                        title="${contagem[i]} de ${ativos.length} funcionários"
+                    ></div>
+                </div>
+            `
+        )
+        .join('')}</div><div class="rotulos">${semana
+        .map(
+            (d) => `
+                <span class="${dateKey(d) === key ? 'hoje' : ''}">
+                    ${DIAS_CURTO[d.getDay()].toUpperCase()} ${pad(d.getDate())}
+                </span>
+            `
+        )
+        .join(
+            ''
+        )}</div></div><div class="card-grande"><div class="card-topo"><h2>Atividades recentes</h2><a class="ver-tudo" href="#movimentacoes">Ver tudo</a></div>${
+        atividades.length
+            ? `
+                  <ul class="lista-atividades">
+                      ${atividades
+                          .map(
+                              (a) => `
+                                  <li class="atividade" data-busca>
+                                      <div
+                                          class="avatar-peq"
+                                          style="background:${corAvatar(a.nome)}"
+                                      >
+                                          ${esc(iniciais(a.nome))}
+                                      </div>
+                                      <div class="info">
+                                          <strong>${esc(a.nome)}</strong>
+                                          <span>
+                                              ${ROTULO_BATIDA[a.idx] || 'Batida'} - ${fmtHora(a.ts)}
+                                          </span>
+                                      </div>
+                                      <time>${tempo(a.ts)}</time>
+                                  </li>
+                              `
+                          )
+                          .join('')}
+                  </ul>
+              `
+            : '<p class="mudo">Nenhuma batida registrada nos últimos dias.</p>'
+    }</div></div><div class="banner-fechamento"><div><h2>Relatório de fechamento mensal</h2><p>Período de ${MESES[hoje.getMonth()].toLowerCase()} de ${hoje.getFullYear()}. ${registrosMes} registros de funcionários processados até agora.</p></div><div class="banner-acoes"><button class="btn-texto" id="btn-resumo">Visualizar resumo</button><button class="btn-folha" id="btn-folha">Folha de pagamento</button></div></div>`;
+}
+
+export function bind({ render }) {
+    bindIr();
+    $$('[data-semana]').forEach((b) =>
+        b.addEventListener('click', () => {
+            semanaOffset += Number(b.dataset.semana);
+            render();
+        })
+    );
+    $('#btn-folha')?.addEventListener('click', () =>
+        toast('A folha de pagamento ainda não faz parte do protótipo.')
+    );
+    $('#btn-resumo')?.addEventListener('click', () => {
+        const now = new Date(),
+            ano = now.getFullYear(),
+            mes = now.getMonth(),
+            linhas = funcionariosAtivos().map((f) => ({ f, r: resumoMes(f, ano, mes) }));
+        abrirModal({
+            titulo: `Resumo de ${MESES[mes]} de ${ano}`,
+            largo: true,
+            corpo: linhas.length
+                ? `
+                      <div class="tabela-container">
+                          <table class="tabela-registros">
+                              <thead>
+                                  <tr>
+                                      <th>Funcionário</th>
+                                      <th>Horas</th>
+                                      <th>Dias</th>
+                                      <th>Faltas</th>
+                                      <th>Justificadas</th>
+                                      <th>Atrasos</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  ${linhas
+                                      .map(
+                                          ({ f, r }) => `
+                                              <tr>
+                                                  <td>${esc(f.nome)}</td>
+                                                  <td>${fmtMin(r.total)}</td>
+                                                  <td>${r.trabalhados}</td>
+                                                  <td>${r.faltas}</td>
+                                                  <td>${r.justificadas}</td>
+                                                  <td>${r.atrasos}</td>
+                                              </tr>
+                                          `
+                                      )
+                                      .join('')}
+                              </tbody>
+                          </table>
+                      </div>
+                  `
+                : '<p>Nenhum funcionário ativo cadastrado.</p>'
+        });
+    });
+}

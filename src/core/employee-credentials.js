@@ -1,16 +1,21 @@
 import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
 import { initializeAuth, inMemoryPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
-import { getDatabase, ref, get, set, serverTimestamp, connectDatabaseEmulator } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+import { getDatabase, ref, get, set, serverTimestamp, connectDatabaseEmulator } from './firebase-tenant.js';
 import { authorizeMobile, employeeForAccess } from './mobile-access.js';
 
-export async function createEmployeeAccess({ auth, db, fid, email, password, emulators = null }) {
+export async function createEmployeeAccess({ auth, db, fid, email, password, emulators = null, owner = auth.currentUser?.uid }) {
     const administrator = auth.currentUser;
     if (!administrator) throw new Error('Entre como titular da empresa.');
     const mail = String(email || '').trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) throw new Error('Informe um e-mail válido para o funcionário.');
     if (mail === administrator.email?.toLowerCase()) throw new Error('Use um e-mail diferente do administrador.');
     if (typeof password !== 'string' || password.length < 8) throw new Error('Defina uma senha com pelo menos 8 caracteres.');
-    await employeeForAccess(db, administrator.uid, fid);
+    try {
+        await employeeForAccess(db, owner, fid);
+    } catch (error) {
+        if (/permission/i.test(error.code || error.message)) throw new Error('O Firebase recusou a leitura da empresa. Confira as regras publicadas e o titular autorizado.');
+        throw error;
+    }
 
     // A sessão temporária não substitui o titular nem persiste o login do funcionário.
     const app = initializeApp(auth.app.options, `employee-${globalThis.crypto.randomUUID()}`);
@@ -21,6 +26,8 @@ export async function createEmployeeAccess({ auth, db, fid, email, password, emu
         connectDatabaseEmulator(temporaryDb, emulators.databaseHost, emulators.databasePort);
     }
     let identified = false;
+    let employeeUid = '';
+    let stage = 'criar ou autenticar a conta do funcionário';
     try {
         let credential;
         try {
@@ -40,9 +47,11 @@ export async function createEmployeeAccess({ auth, db, fid, email, password, emu
         }
         identified = true;
         const user = credential.user;
+        employeeUid = user.uid;
         if (user.uid === administrator.uid) throw new Error('Use uma conta individual de funcionário.');
         await user.getIdToken(true);
-        const identityRef = ref(temporaryDb, `solicitacoesMobile/${user.uid}`);
+        stage = 'confirmar a identidade em solicitacoesMobile';
+        const identityRef = ref(temporaryDb, `contas/${owner}/solicitacoesMobile/${user.uid}`);
         if (!(await get(identityRef)).exists()) {
             try {
                 await set(identityRef, { email: user.email, criadoEm: serverTimestamp() });
@@ -51,7 +60,9 @@ export async function createEmployeeAccess({ auth, db, fid, email, password, emu
             }
         }
         if (auth.currentUser?.uid !== administrator.uid) throw new Error('A sessão do administrador mudou. Entre novamente antes de liberar o acesso.');
-        await authorizeMobile(db, administrator.uid, fid, user.uid);
+        stage = 'salvar credenciais e liberar o vínculo em acessosMobile';
+        const identity = (await get(identityRef)).val();
+        await authorizeMobile(db, owner, fid, user.uid, { password, identity, onStage: (value) => { stage = value; } });
         return { uid: user.uid, email: user.email };
     } catch (error) {
         const messages = {
@@ -64,7 +75,8 @@ export async function createEmployeeAccess({ auth, db, fid, email, password, emu
             'auth/network-request-failed': 'Falha de conexão. Tente novamente com o mesmo e-mail e senha.',
         };
         if (messages[error.code]) throw new Error(messages[error.code]);
-        if (identified && error.code) throw new Error('A conta foi identificada, mas o vínculo não foi confirmado. Confira as regras e a conexão e tente novamente com o mesmo e-mail e senha.');
+        if (/permission/i.test(error.code || error.message)) throw new Error(`O Firebase recusou a etapa: ${stage}. Conta selecionada: ${owner}. Operador: ${administrator.uid}. Funcionário: ${mail}${employeeUid ? ` (UID ${employeeUid})` : ''}. Confira se o operador tem permissão de Administrador nesta empresa e se as regras de múltiplas contas foram publicadas. O login no app só será liberado após concluir esta etapa.`);
+        if (identified && error.code) throw new Error(`Não foi possível ${stage}. Confira a conexão e tente salvar novamente com os mesmos dados.`);
         throw error;
     } finally {
         await signOut(temporaryAuth).catch(() => {});

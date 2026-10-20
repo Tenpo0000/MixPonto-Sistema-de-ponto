@@ -1,0 +1,147 @@
+const encoder = new TextEncoder();
+const xml = (v) =>
+    String(v ?? '')
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+        .replace(
+            /[<>&"']/g,
+            (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c]
+        );
+const tabelaCRC = Array.from({ length: 256 }, (_, i) => {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+});
+const crc32 = (bytes) => {
+    let c = 0xffffffff;
+    for (const b of bytes) c = tabelaCRC[(c ^ b) & 255] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+};
+
+function concatenar(arrays) {
+    const out = new Uint8Array(arrays.reduce((n, a) => n + a.length, 0));
+    let p = 0;
+    for (const a of arrays) {
+        out.set(a, p);
+        p += a.length;
+    }
+    return out;
+}
+
+function zip(files) {
+    const locais = [],
+        centrais = [];
+    let offset = 0;
+    for (const [nome, texto] of files) {
+        const n = encoder.encode(nome),
+            b = encoder.encode(texto),
+            crc = crc32(b),
+            local = new Uint8Array(30 + n.length),
+            l = new DataView(local.buffer);
+        l.setUint32(0, 0x04034b50, true);
+        l.setUint16(4, 20, true);
+        l.setUint16(6, 0x800, true);
+        l.setUint16(12, 33, true);
+        l.setUint32(14, crc, true);
+        l.setUint32(18, b.length, true);
+        l.setUint32(22, b.length, true);
+        l.setUint16(26, n.length, true);
+        local.set(n, 30);
+        locais.push(local, b);
+        const central = new Uint8Array(46 + n.length),
+            c = new DataView(central.buffer);
+        c.setUint32(0, 0x02014b50, true);
+        c.setUint16(4, 20, true);
+        c.setUint16(6, 20, true);
+        c.setUint16(8, 0x800, true);
+        c.setUint16(14, 33, true);
+        c.setUint32(16, crc, true);
+        c.setUint32(20, b.length, true);
+        c.setUint32(24, b.length, true);
+        c.setUint16(28, n.length, true);
+        c.setUint32(42, offset, true);
+        central.set(n, 46);
+        centrais.push(central);
+        offset += local.length + b.length;
+    }
+    const centro = concatenar(centrais),
+        fim = new Uint8Array(22),
+        f = new DataView(fim.buffer);
+    f.setUint32(0, 0x06054b50, true);
+    f.setUint16(8, files.length, true);
+    f.setUint16(10, files.length, true);
+    f.setUint32(12, centro.length, true);
+    f.setUint32(16, offset, true);
+    return concatenar([...locais, centro, fim]);
+}
+
+function coluna(i) {
+    let s = '';
+    for (i++; i; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + ((i - 1) % 26)) + s;
+    return s;
+}
+
+export function gerarXLSX(linhas) {
+    const sheet = `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${linhas
+        .map(
+            (linha, i) =>
+                `<row r="${i + 1}">${linha
+                    .map((v, j) => {
+                        const r = coluna(j) + (i + 1);
+                        return typeof v === 'number' && Number.isFinite(v)
+                            ? `<c r="${r}"><v>${v}</v></c>`
+                            : `<c r="${r}" t="inlineStr"><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
+                    })
+                    .join('')}</row>`
+        )
+        .join('')}</sheetData></worksheet>`;
+    return zip([
+        [
+            '[Content_Types].xml',
+            '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'
+        ],
+        [
+            '_rels/.rels',
+            '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'
+        ],
+        [
+            'xl/workbook.xml',
+            '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Relatório" sheetId="1" r:id="rId1"/></sheets></workbook>'
+        ],
+        [
+            'xl/_rels/workbook.xml.rels',
+            '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'
+        ],
+        ['xl/worksheets/sheet1.xml', sheet]
+    ]);
+}
+
+export function baixarExcel(nome, linhas) {
+    const blob = new Blob([gerarXLSX(linhas)], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }),
+        url = URL.createObjectURL(blob),
+        a = document.createElement('a');
+    a.href = url;
+    a.download = nome;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function imprimirTabela(titulo, cabecalhos, linhas, nota = '') {
+    const iframe = document.createElement('iframe');
+    iframe.title = 'Relatório para impressão';
+    iframe.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;border:0';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument;
+    doc.open();
+    doc.write(
+        `<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><title>${xml(titulo)}</title><style>@page{size:A4 landscape;margin:12mm}body{font:11px Arial;color:#182133}h1{font-size:20px}p{line-height:1.5}table{border-collapse:collapse;width:100%}th,td{padding:8px;border:1px solid #d0d6e1;text-align:left}th{background:#edf2f8}thead{display:table-header-group}tr{break-inside:avoid}</style></head><body><h1>${xml(titulo)}</h1><p>${xml(nota)}</p><table><thead><tr>${cabecalhos.map((h) => `<th>${xml(h)}</th>`).join('')}</tr></thead><tbody>${linhas.map((l) => `<tr>${l.map((v) => `<td>${xml(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`
+    );
+    doc.close();
+    const win = iframe.contentWindow;
+    win.addEventListener('afterprint', () => iframe.remove(), { once: true });
+    setTimeout(() => {
+        win.focus();
+        win.print();
+    }, 100);
+}

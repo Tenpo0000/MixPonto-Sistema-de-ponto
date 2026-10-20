@@ -1,0 +1,9 @@
+{
+    "tabWidth": 4,
+    "printWidth": 100,
+    "singleQuote": true,
+    "trailingComma": "none",
+    "htmlWhitespaceSensitivity": "ignore",
+    "endOfLine": "lf",
+    "embeddedLanguageFormatting": "off"
+}

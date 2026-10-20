@@ -1,23 +1,13 @@
-# MixPonto — integração móvel com Firebase Spark
+# MixPonto — sistema de ponto com Firebase Spark
 
-Esta cópia do site consulta o Realtime Database com o login titular, reúne batidas RFID e móveis no cartão, calcula horas pelos pares e imprime a tabela unificada pelo diálogo de impressão/PDF.
+Sirva a raiz deste projeto por HTTP/HTTPS e abra `/src/index.html`. O sistema reúne cadastros, jornadas, cartão ponto, relatórios, justificativas, batidas manuais e registros RFID e móveis.
 
-Acesso móvel: `/src/mobile.html`. O titular seleciona um funcionário já existente, define e-mail e senha e clica em **Criar e liberar acesso**. O funcionário entra no aplicativo com esses dados, sem código ou confirmação obrigatória de e-mail. A mesma tela lista e revoga vínculos sem apagar o histórico.
+O mesmo login pode selecionar entre empresas autorizadas. Em **Configurações → Usuários**, o administrador concede ou bloqueia acesso pelo e-mail, sem cadastrar manualmente o UID de cada convidado no Firebase. O ID de Cadastro → Empresa é numérico e automático (1, 2, 3…), aparece no cabeçalho para copiar no aplicativo; ele acompanha os dados em `X-Empresa-ID`. O espaço interno da conta usa `X-Conta-ID`.
 
-A criação usa uma sessão temporária em memória, mantendo o titular conectado. A senha é gerenciada pelo Firebase Authentication e não é salva no Realtime Database nem fica disponível na lista de acessos. Um e-mail já cadastrado exige sua senha atual; esta tela não redefine senhas desconhecidas. Repetir os mesmos dados permite concluir uma criação interrompida.
+O Android 1.3 pede ID da empresa, e-mail e senha. As novas solicitações e autorizações móveis ficam dentro da respectiva empresa no banco. `/src/mobile.html` redireciona para o cadastro integrado.
 
-Sirva a raiz deste repositório por HTTP/HTTPS. A entrada do cartão é `/src/index.html`. As instâncias compartilhadas de Firebase Auth e Database estão em `fireBase_config.js`. O CSS permanece em `src/style.css`.
+Consulte [MULTICONTAS.md](MULTICONTAS.md) para a atualização única das regras, uso das permissões e instalação do APK.
 
-## Preparação do banco
+A configuração compartilhada está em `src/fireBase_config.js`, a inicialização em `src/bootstrap.js`, as rotas em `src/app.js` e o transporte HTTP com header e assinaturas em `src/core/firebase-tenant.js`. As regras estão em `firebase/database.rules.json`.
 
-Use as regras e o guia `INSTALACAO-SPARK.md` entregues com o projeto Android **1.1**. Atualize site, regras e APK em conjunto. O proprietário precisa cadastrar no Console a lista `titularesAutorizados/UID = true` e conferir `contas/UID/meta/ownerUid = UID`. Não libere o banco publicamente.
-
-O firmware do terminal também precisa atualizar `controleBatidas` para aplicar cinco minutos entre fontes. Sem essa atualização, a gravação RFID antiga continua funcionando, mas não participa do intervalo compartilhado.
-
-## Limitações verificadas
-
-O commit inicial fornecido continha ações simuladas, sem cadastro de funcionários, jornadas, faltas/atrasos, justificativas persistidas ou edição manual. Esses módulos precisam ser recuperados da versão administrativa mencionada no pedido. A inclusão manual fica indisponível nesta cópia para evitar confirmação sem gravação e justificativas livres. Indicadores sem cálculo aparecem como não apurados.
-
-As batidas anteriores à admissão não entram no total e recebem “Anterior ao cadastro”. O filtro inclui a data inicial e a final. Todas as batidas aparecem com origem e horário de Brasília, inclusive além do segundo par.
-
-A integração não cria funcionários. Não houve publicação, batida real ou teste visual no navegador nesta sessão. Foram executados testes das regras e do vínculo/REST/união em emulador, documentados no pacote Android.
+Execute `npm run test:local --prefix testes` para verificar o site. Os testes de integração Auth/Database estão no projeto Android, em `spark`.

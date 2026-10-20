@@ -1,0 +1,114 @@
+import { registrarDemissao } from './demitidos.js';
+
+import { $, $$, esc, lista, porNome, fmtData, parseKey } from '../core/utils.js';
+import { state } from '../core/state.js';
+import { cabecalho, semDados, aguarde, carregado } from '../core/cadastros.js';
+import { novoFuncionario, editarFuncionario } from './funcionario.js';
+
+
+export function view() {
+    const fs = lista(state.funcionarios).sort(porNome);
+    return `
+        <div class="cad-page">
+            ${cabecalho('Funcionários', 'Funcionários', `${fs.length} cadastrados`, '<button class="btn btn-primario" id="cad-novo">+ Novo funcionário</button>')}
+            <section class="cad-card cad-lista">
+                ${
+                    !carregado('funcionarios')
+                        ? aguarde()
+                        : !fs.length
+                          ? semDados('Nenhum funcionário cadastrado.')
+                          : `
+                                <div class="cad-tabela-wrap">
+                                    <table class="cad-tabela">
+                                        <thead>
+                                            <tr>
+                                                <th>Funcionário</th>
+                                                <th>Matrícula</th>
+                                                <th>CPF</th>
+                                                <th>Cargo</th>
+                                                <th>Departamento</th>
+                                                <th>Cartão RFID</th>
+                                                <th>Situação</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${fs
+                                                .map(
+                                                    (f) => `
+                                                        <tr data-busca>
+                                                            <td>
+                                                                <strong>${esc(f.nome)}</strong>
+                                                                <small class="cad-subtexto">
+                                                                    Admissão:
+                                                                    ${f.admissao ? fmtData(parseKey(f.admissao)) : '—'}
+                                                                </small>
+                                                            </td>
+                                                            <td>${esc(f.matricula)}</td>
+                                                            <td>${esc(f.cpf)}</td>
+                                                            <td>
+                                                                ${esc(state.cargos?.[f.cargoId]?.nome || f.cargo || '—')}
+                                                            </td>
+                                                            <td>
+                                                                ${esc(state.departamentos?.[f.departamentoId]?.nome || f.departamento || '—')}
+                                                            </td>
+                                                            <td>
+                                                                ${esc(f.cartaoUid || 'Não vinculado')}
+                                                            </td>
+                                                            <td>
+                                                                <span
+                                                                    class="cad-pill ${f.status === 'desligado' ? 'cad-pill-neutra' : 'cad-pill-verde'}"
+                                                                >
+                                                                    ${f.status === 'desligado' ? 'Desligado' : 'Ativo'}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <div class="acoes-linha">
+                                                                    <button
+                                                                        class="btn-ajustar"
+                                                                        data-func-editar="${esc(f.id)}"
+                                                                    >
+                                                                        Editar
+                                                                    </button>
+                                                                    ${
+                                                                        f.status === 'desligado'
+                                                                            ? '<a class="btn btn-secundario cad-btn-peq" href="#demitidos">Ver desligamento</a>'
+                                                                            : `
+                                                                                  <button
+                                                                                      class="btn btn-perigo cad-btn-peq"
+                                                                                      data-func-demitir="${esc(f.id)}"
+                                                                                  >
+                                                                                      Demitir
+                                                                                  </button>
+                                                                              `
+                                                                    }
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    `
+                                                )
+                                                .join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `
+                }
+            </section>
+            <p class="cad-ajuda cad-espaco">
+                Para consultar o histórico ou reativar um colaborador, use
+                <a href="#demitidos">Movimentações → Funcionários demitidos</a>
+                .
+            </p>
+        </div>
+    `;
+}
+
+export function bind() {
+    $('#cad-novo').addEventListener('click', novoFuncionario);
+    $$('[data-func-editar]').forEach((b) =>
+        b.addEventListener('click', () => editarFuncionario(b.dataset.funcEditar))
+    );
+    $$('[data-func-demitir]').forEach((b) =>
+        b.addEventListener('click', () => registrarDemissao(b.dataset.funcDemitir))
+    );
+}

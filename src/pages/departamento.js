@@ -1,0 +1,281 @@
+import { $, $$, esc } from '../core/utils.js';
+import { state } from '../core/state.js';
+import { abrirModal, fecharModal, toast } from '../core/ui.js';
+import {
+    itens,
+    carregado,
+    colaboradores,
+    cabecalho,
+    semDados,
+    aguarde,
+    campo,
+    chave,
+    novoId,
+    gravar,
+    executar,
+    erroForm,
+    exportarCSV
+} from '../core/cadastros.js';
+
+let pagina = 0,
+    filtro = '',
+    asc = true;
+
+export function view() {
+    const todos = itens('departamentos'),
+        contagem = todos
+            .map((c) => ({ c, n: colaboradores('departamento', c).length }))
+            .sort((a, b) => b.n - a.n),
+        maior = contagem[0];
+    const filtrados = todos.filter((c) => chave(c.nome).includes(chave(filtro)));
+    if (!asc) filtrados.reverse();
+    const total = filtrados.length;
+    pagina = Math.min(pagina, Math.max(0, Math.ceil(total / 6) - 1));
+    const lista = filtrados.slice(pagina * 6, pagina * 6 + 6);
+    return `
+        <div class="cad-page">
+            ${cabecalho('Departamentos', 'Departamentos', 'Gerencie as divisões estruturais da sua organização.', '<button class="btn btn-primario" id="dep-novo">+ Adicionar Novo</button>')}
+            <div class="cad-resumos">
+                <section class="cad-card cad-kpi">
+                    <small>Total</small>
+                    <strong>${todos.length}</strong>
+                </section>
+                <section class="cad-card cad-kpi">
+                    <small>Maior time</small>
+                    <b>
+                        ${maior?.n ? esc(maior.c.nome) : 'Sem vínculos'}
+                        ${maior?.n ? `(${maior.n})` : ''}
+                    </b>
+                </section>
+                <section class="cad-azul cad-kpi-banner">
+                    <h2>Gestão de RH</h2>
+                    <p>Organize os departamentos e acompanhe a distribuição dos colaboradores.</p>
+                </section>
+            </div>
+            <section class="cad-card cad-lista">
+                <header class="cad-card-topo">
+                    <h3>Listagem de departamentos</h3>
+                    <div class="cad-acoes">
+                        <label class="cad-sr" for="dep-filtro">Filtrar departamentos</label>
+                        <input
+                            id="dep-filtro"
+                            class="cad-filtro"
+                            placeholder="Filtrar departamentos…"
+                            value="${esc(filtro)}"
+                        />
+                        <button class="btn btn-secundario cad-btn-peq" id="dep-ordem">
+                            ${asc ? 'A–Z' : 'Z–A'}
+                        </button>
+                        <button class="btn btn-secundario cad-btn-peq" id="dep-exportar">
+                            Exportar CSV
+                        </button>
+                    </div>
+                </header>
+                ${
+                    !carregado('departamentos', 'funcionarios')
+                        ? aguarde()
+                        : !lista.length
+                          ? semDados()
+                          : `
+                                <div class="cad-tabela-wrap">
+                                    <table class="cad-tabela">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Descrição</th>
+                                                <th>Colaboradores</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${lista
+                                                .map(
+                                                    (d) => `
+                                                        <tr data-busca>
+                                                            <td>
+                                                                <code title="${esc(d.id)}">
+                                                                    #${esc(d.id.slice(-8))}
+                                                                </code>
+                                                            </td>
+                                                            <td>
+                                                                <strong>${esc(d.nome)}</strong>
+                                                                ${
+                                                                    d.descricao
+                                                                        ? `
+                                                                              <small
+                                                                                  class="cad-subtexto"
+                                                                              >
+                                                                                  ${esc(d.descricao)}
+                                                                              </small>
+                                                                          `
+                                                                        : ''
+                                                                }
+                                                            </td>
+                                                            <td>
+                                                                ${colaboradores('departamento', d).length}
+                                                                ativos
+                                                            </td>
+                                                            <td>
+                                                                <div class="acoes-linha">
+                                                                    <button
+                                                                        class="btn-ajustar"
+                                                                        data-dep-editar="${esc(d.id)}"
+                                                                    >
+                                                                        Editar
+                                                                    </button>
+                                                                    <button
+                                                                        class="btn btn-perigo cad-btn-peq"
+                                                                        data-dep-excluir="${esc(d.id)}"
+                                                                    >
+                                                                        Excluir
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    `
+                                                )
+                                                .join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `
+                }
+                <footer class="cad-paginacao">
+                    <span>Mostrando ${lista.length} de ${total} departamentos</span>
+                    <div>
+                        <button
+                            class="btn btn-secundario cad-btn-peq"
+                            id="dep-anterior"
+                            ${pagina === 0 ? 'disabled' : ''}
+                        >
+                            Anterior
+                        </button>
+                        <button
+                            class="btn btn-secundario cad-btn-peq"
+                            id="dep-proximo"
+                            ${(pagina + 1) * 6 >= total ? 'disabled' : ''}
+                        >
+                            Próximo
+                        </button>
+                    </div>
+                </footer>
+            </section>
+        </div>
+    `;
+}
+
+function formulario(id) {
+    if (!carregado('departamentos', 'funcionarios'))
+        return toast('Aguarde o carregamento dos dados.');
+    const c = state.departamentos?.[id] || {};
+    abrirModal({
+        titulo: id ? 'Editar departamento' : 'Novo departamento',
+        corpo: `${campo('nome', 'Nome do departamento', c.nome, 'maxlength="120" required')}${campo('descricao', 'Descrição', c.descricao, 'maxlength="240"')}<p class="erro" data-erro hidden></p>`,
+        aoAbrir: (container) => {
+            const form = $('form', container);
+            $('.modal-rodape', container).insertAdjacentHTML(
+                'beforeend',
+                '<button type="button" class="btn btn-primario" id="dep-gravar">Salvar Departamento</button>'
+            );
+            const salvar = async () => {
+                const d = Object.fromEntries(new FormData(form));
+                d.nome = d.nome?.trim();
+                d.descricao = d.descricao?.trim() || '';
+                if (!d.nome) return erroForm(form, 'Informe o nome do departamento.', 'nome');
+                if (
+                    itens('departamentos').some(
+                        (x) => x.id !== id && chave(x.nome) === chave(d.nome)
+                    )
+                )
+                    return erroForm(form, 'Já existe um departamento com esse nome.', 'nome');
+                if (
+                    id &&
+                    chave(c.nome) !== chave(d.nome) &&
+                    Object.values(state.funcionarios || {}).some(
+                        (f) => !f.departamentoId && chave(f.departamento) === chave(c.nome)
+                    )
+                )
+                    return erroForm(
+                        form,
+                        'Vincule os funcionários antigos ao departamento antes de renomeá-lo.'
+                    );
+                if (
+                    await executar(
+                        form,
+                        () =>
+                            gravar(`departamentos/${id || novoId('departamentos')}`, {
+                                ...c,
+                                ...d
+                            }),
+                        'Departamento salvo.'
+                    )
+                )
+                    fecharModal();
+            };
+            $('#dep-gravar', container).addEventListener('click', salvar);
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                salvar();
+            });
+        }
+    });
+}
+
+export function bind({ render }) {
+    $('#dep-novo').addEventListener('click', () => formulario());
+    $$('[data-dep-editar]').forEach((b) =>
+        b.addEventListener('click', () => formulario(b.dataset.depEditar))
+    );
+    $$('[data-dep-excluir]').forEach((b) =>
+        b.addEventListener('click', async () => {
+            const id = b.dataset.depExcluir,
+                c = state.departamentos[id];
+            if (
+                Object.values(state.funcionarios || {}).some(
+                    (f) =>
+                        f.departamentoId === id ||
+                        (!f.departamentoId && chave(f.departamento) === chave(c.nome))
+                )
+            )
+                return toast('Há funcionários vinculados ao departamento.', 'erro');
+            if (!confirm(`Excluir ${c.nome}?`)) return;
+            try {
+                await gravar(`departamentos/${id}`, null);
+                toast('Departamento excluído.');
+            } catch {
+                toast('Não foi possível excluir.', 'erro');
+            }
+        })
+    );
+    $('#dep-filtro').addEventListener('input', (e) => {
+        const pos = e.target.selectionStart;
+        filtro = e.target.value;
+        pagina = 0;
+        render();
+        $('#dep-filtro').focus();
+        $('#dep-filtro').setSelectionRange(pos, pos);
+    });
+    $('#dep-ordem').addEventListener('click', () => {
+        asc = !asc;
+        render();
+    });
+    $('#dep-anterior').addEventListener('click', () => {
+        pagina--;
+        render();
+    });
+    $('#dep-proximo').addEventListener('click', () => {
+        pagina++;
+        render();
+    });
+    $('#dep-exportar').addEventListener('click', () =>
+        exportarCSV('departamentos.csv', [
+            ['ID', 'Departamento', 'Descrição', 'Colaboradores ativos'],
+            ...itens('departamentos').map((d) => [
+                d.id,
+                d.nome,
+                d.descricao,
+                colaboradores('departamento', d).length
+            ])
+        ])
+    );
+}

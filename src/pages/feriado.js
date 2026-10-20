@@ -1,0 +1,440 @@
+import { empresasDisponiveis, empresaPorId } from '../core/empresas.js';
+import { planejarImportacao } from '../core/feriados-nacionais.js';
+import { db } from '../core/db.js';
+import { $, $$, esc, fmtData, parseKey, dateKey } from '../core/utils.js';
+import { state, funcionariosAtivos, diaUtil } from '../core/state.js';
+import { toast } from '../core/ui.js';
+import {
+    cabecalho,
+    itens,
+    carregado,
+    campo,
+    novoId,
+    gravar,
+    executar,
+    erroForm,
+    exportarCSV,
+    semDados,
+    aguarde
+} from '../core/cadastros.js';
+
+let importacaoAberta = false,
+    anoImportacao = new Date().getFullYear(),
+    incluirPaixao = false,
+    importando = false;
+let pagina = 0,
+    editId = null,
+    draft = { descricao: '', data: '', empresaId: '' };
+const zerar = () => {
+    editId = null;
+    draft = { descricao: '', data: '', empresaId: '' };
+};
+
+export function validarFeriado(d, id) {
+    if (!d.descricao || !d.data) return 'Informe a descrição e a data do feriado.';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.data) || dateKey(new Date(d.data + 'T12:00:00')) !== d.data)
+        return 'Informe uma data válida.';
+    if (d.empresaId && !empresaPorId(d.empresaId))
+        return 'A empresa selecionada não está disponível.';
+    if (
+        itens('feriados').some(
+            (f) => f.id !== id && f.data === d.data && (f.empresaId || '') === d.empresaId
+        )
+    )
+        return 'Já existe um feriado nesta data para a mesma abrangência.';
+    return '';
+}
+
+function importacaoView() {
+    let datas = [],
+        erro = '';
+    try {
+        datas = planejarImportacao(anoImportacao, incluirPaixao, state.feriados);
+    } catch (e) {
+        erro = e.message;
+    }
+    const novos = datas.filter((f) => !f.existente).length;
+    return `
+        <section class="cad-card cad-margem">
+            <h2>Importar feriados nacionais</h2>
+            <p class="cad-ajuda">
+                Selecione o ano e confira as datas antes de importar. Os feriados serão aplicados a
+                todas as empresas desta conta.
+            </p>
+            <form id="fer-import-form" novalidate>
+                <fieldset class="cad-fieldset" ${importando ? 'disabled' : ''}>
+                    <div class="cad-duas-colunas cad-espaco">
+                        ${campo('ano', 'Ano', anoImportacao, 'type="number" min="2024" max="2100" step="1" required')}
+                        <label class="mov-check-simples">
+                            <input
+                                type="checkbox"
+                                name="paixao"
+                                ${incluirPaixao ? 'checked' : ''}
+                            />
+                            Incluir Sexta-feira da Paixão, conforme calendário local
+                        </label>
+                    </div>
+                    <p class="cad-ajuda">
+                        Carnaval e Corpus Christi podem ser cadastrados manualmente conforme o
+                        calendário da empresa.
+                    </p>
+                    ${
+                        erro
+                            ? `
+                                  <p class="erro">${esc(erro)}</p>
+                              `
+                            : `
+                                  <div class="cad-tabela-wrap">
+                                      <table class="cad-tabela">
+                                          <thead>
+                                              <tr>
+                                                  <th>Data</th>
+                                                  <th>Feriado</th>
+                                                  <th>Importação</th>
+                                              </tr>
+                                          </thead>
+                                          <tbody>
+                                              ${datas
+                                                  .map(
+                                                      (f) => `
+                                                          <tr>
+                                                              <td>${fmtData(parseKey(f.data))}</td>
+                                                              <td>${esc(f.descricao)}</td>
+                                                              <td>
+                                                                  ${f.existente ? 'Já cadastrado / importado' : 'Será adicionado'}
+                                                              </td>
+                                                          </tr>
+                                                      `
+                                                  )
+                                                  .join('')}
+                                          </tbody>
+                                      </table>
+                                  </div>
+                              `
+                    }
+                    <p class="erro" data-erro hidden></p>
+                    <div class="cad-acoes cad-espaco">
+                        <button
+                            class="btn btn-primario"
+                            type="submit"
+                            ${!novos || erro || !carregado('feriados') ? 'disabled' : ''}
+                        >
+                            ${importando ? 'Importando…' : `Importar ${novos} feriado${novos === 1 ? '' : 's'}`}
+                        </button>
+                        <button class="btn btn-secundario" type="button" id="fer-import-cancelar">
+                            Fechar
+                        </button>
+                    </div>
+                </fieldset>
+            </form>
+        </section>
+    `;
+}
+
+export function view() {
+    const todos = itens('feriados').sort((a, b) => a.data.localeCompare(b.data)),
+        total = todos.length;
+    pagina = Math.min(pagina, Math.max(0, Math.ceil(total / 5) - 1));
+    const lista = todos.slice(pagina * 5, pagina * 5 + 5);
+    const hoje = dateKey(new Date()),
+        proximo = todos.find((f) => f.data >= hoje);
+    const falta = proximo ? Math.round((parseKey(proximo.data) - parseKey(hoje)) / 86400000) : 0;
+    const hojeDate = new Date(),
+        ano = hojeDate.getFullYear(),
+        mes = hojeDate.getMonth();
+    let diasUteis = 0;
+    for (let d = 1; d <= new Date(ano, mes + 1, 0).getDate(); d++)
+        if (diaUtil(new Date(ano, mes, d))) diasUteis++;
+    const pronto = carregado('feriados', 'empresa', 'empresas', 'funcionarios', 'config');
+    return `
+        <div class="cad-page">
+            ${cabecalho('Feriados', 'Cadastro de Feriados', 'Gerencie os dias não úteis da sua organização.', '<button class="btn btn-secundario" id="fer-importar">Importar feriados nacionais</button><button class="btn btn-primario" id="fer-exportar">Exportar Relatório</button>')}${importacaoAberta ? importacaoView() : ''}
+            <div class="cad-grid-feriados">
+                <div class="cad-pilha">
+                    <section class="cad-card">
+                        <h2>${editId ? 'Editar Feriado' : 'Novo Feriado'}</h2>
+                        <form id="fer-form" novalidate>
+                            <fieldset class="cad-fieldset" ${pronto ? '' : 'disabled'}>
+                                ${campo('descricao', 'Descrição do Feriado', draft.descricao, 'maxlength="160" placeholder="Ex: Proclamação da República" required')}
+                                <div class="cad-duas-colunas cad-espaco">
+                                    ${campo('data', 'Data', draft.data, 'type="date" required')}
+                                    <label class="cad-campo">
+                                        <span>Empresa</span>
+                                        <select name="empresaId">
+                                            <option value="">Todas as Empresas</option>
+                                            ${empresasDisponiveis()
+                                                .map(
+                                                    (e) => `
+                                                        <option
+                                                            value="${esc(e.id)}"
+                                                            ${draft.empresaId === e.id ? 'selected' : ''}
+                                                        >
+                                                            ${esc(e.nome)}
+                                                        </option>
+                                                    `
+                                                )
+                                                .join('')}
+                                        </select>
+                                    </label>
+                                </div>
+                                <p class="erro" data-erro hidden></p>
+                                <div class="cad-acoes cad-espaco">
+                                    <button class="btn btn-primario" type="submit">
+                                        Salvar Feriado
+                                    </button>
+                                    <button
+                                        class="btn btn-secundario"
+                                        type="button"
+                                        id="fer-limpar"
+                                    >
+                                        Limpar
+                                    </button>
+                                </div>
+                            </fieldset>
+                        </form>
+                    </section>
+                    <section class="cad-azul">
+                        <h2>Dica de Gestão</h2>
+                        <p>
+                            Os feriados cadastrados deixam de gerar faltas no cartão ponto,
+                            respeitando a empresa vinculada ao funcionário.
+                        </p>
+                    </section>
+                </div>
+                <section class="cad-card cad-lista">
+                    <header class="cad-card-topo">
+                        <h2>Feriados Cadastrados</h2>
+                        <span class="cad-texto-azul">${total} cadastrados</span>
+                    </header>
+                    ${
+                        !pronto
+                            ? aguarde()
+                            : !lista.length
+                              ? semDados('Nenhum feriado cadastrado.')
+                              : `
+                                    <div class="cad-tabela-wrap">
+                                        <table class="cad-tabela">
+                                            <thead>
+                                                <tr>
+                                                    <th>Descrição</th>
+                                                    <th>Data</th>
+                                                    <th>Empresa</th>
+                                                    <th>Abrangência</th>
+                                                    <th>Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${lista
+                                                    .map(
+                                                        (f) => `
+                                                            <tr data-busca>
+                                                                <td>
+                                                                    <strong>
+                                                                        ${esc(f.descricao)}
+                                                                    </strong>
+                                                                </td>
+                                                                <td>
+                                                                    ${fmtData(parseKey(f.data))}
+                                                                </td>
+                                                                <td>
+                                                                    ${f.empresaId ? esc(empresaPorId(f.empresaId)?.nome || 'Empresa cadastrada') : 'Todas'}
+                                                                </td>
+                                                                <td>
+                                                                    <span
+                                                                        class="cad-pill ${f.empresaId ? '' : 'cad-pill-verde'}"
+                                                                    >
+                                                                        ${f.empresaId ? 'Empresa' : 'Geral'}
+                                                                    </span>
+                                                                </td>
+                                                                <td>
+                                                                    <div class="acoes-linha">
+                                                                        <button
+                                                                            class="btn-ajustar"
+                                                                            data-fer-editar="${esc(f.id)}"
+                                                                        >
+                                                                            Editar
+                                                                        </button>
+                                                                        <button
+                                                                            class="btn btn-perigo cad-btn-peq"
+                                                                            data-fer-excluir="${esc(f.id)}"
+                                                                        >
+                                                                            Excluir
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        `
+                                                    )
+                                                    .join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                `
+                    }
+                    <footer class="cad-paginacao">
+                        <span>Mostrando ${lista.length} de ${total} feriados</span>
+                        <div>
+                            <button
+                                class="btn btn-secundario cad-btn-peq"
+                                id="fer-anterior"
+                                ${pagina === 0 ? 'disabled' : ''}
+                            >
+                                Anterior
+                            </button>
+                            <span>${pagina + 1}</span>
+                            <button
+                                class="btn btn-secundario cad-btn-peq"
+                                id="fer-proximo"
+                                ${(pagina + 1) * 5 >= total ? 'disabled' : ''}
+                            >
+                                Próximo
+                            </button>
+                        </div>
+                    </footer>
+                </section>
+            </div>
+            <div class="cad-resumos cad-margem">
+                <section class="cad-card cad-kpi">
+                    <small>Próximo feriado</small>
+                    <b>${proximo ? esc(proximo.descricao) : 'Nenhum previsto'}</b>
+                    <p>${proximo ? (falta === 0 ? 'Hoje' : `Em ${falta} dias`) : ''}</p>
+                </section>
+                <section class="cad-card cad-kpi">
+                    <small>Configuração global</small>
+                    <b>${diasUteis} dias úteis no mês</b>
+                    <p>Calendário geral, sem feriados de empresa</p>
+                </section>
+                <section class="cad-card cad-kpi">
+                    <small>Equipe cadastrada</small>
+                    <b>${funcionariosAtivos().length} funcionários ativos</b>
+                    <p>Feriados específicos usam o vínculo com a empresa</p>
+                </section>
+            </div>
+        </div>
+    `;
+}
+
+export function bind({ render }) {
+    $('#fer-importar').addEventListener('click', () => {
+        if (importando) return;
+        importacaoAberta = !importacaoAberta;
+        render();
+        $('#fer-import-form input')?.focus();
+    });
+    const importar = $('#fer-import-form');
+    if (importar) {
+        $('[name=ano]', importar).addEventListener('change', (e) => {
+            anoImportacao = Number(e.target.value);
+            render();
+        });
+        $('[name=paixao]', importar).addEventListener('change', (e) => {
+            incluirPaixao = e.target.checked;
+            render();
+        });
+        $('#fer-import-cancelar').addEventListener('click', () => {
+            if (importando) return;
+            importacaoAberta = false;
+            render();
+        });
+        importar.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (importando || !carregado('feriados')) return;
+            let novos;
+            try {
+                novos = planejarImportacao(anoImportacao, incluirPaixao, state.feriados).filter(
+                    (f) => !f.existente
+                );
+            } catch (e) {
+                return erroForm(importar, e.message);
+            }
+            if (!novos.length) return toast('Todos os feriados já estão cadastrados.');
+            const lote = Object.fromEntries(
+                novos.map(({ id, existente, ...f }) => [`feriados/${id}`, f])
+            );
+            importando = true;
+            render();
+            try {
+                await db.update(lote);
+                toast(`${novos.length} feriados importados.`);
+                pagina = 0;
+                importacaoAberta = false;
+            } catch {
+                toast(
+                    'Não foi possível importar. Confira a conexão e as permissões do banco.',
+                    'erro'
+                );
+            } finally {
+                importando = false;
+                if (location.hash === '#feriado') render();
+            }
+        });
+    }
+    const form = $('#fer-form');
+    form.addEventListener('input', (e) => {
+        if (e.target.name in draft) draft[e.target.name] = e.target.value;
+    });
+    form.addEventListener('change', (e) => {
+        if (e.target.name in draft) draft[e.target.name] = e.target.value;
+    });
+    $('#fer-limpar').addEventListener('click', () => {
+        zerar();
+        render();
+    });
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!carregado('feriados', 'empresa', 'empresas')) return;
+        const d = { ...draft, descricao: draft.descricao.trim() };
+        const erro = validarFeriado(d, editId);
+        if (erro) return erroForm(form, erro);
+        if (
+            await executar(
+                form,
+                () => gravar(`feriados/${editId || novoId('feriados')}`, d),
+                'Feriado salvo.'
+            )
+        ) {
+            zerar();
+            render();
+        }
+    });
+    $$('[data-fer-editar]').forEach((b) =>
+        b.addEventListener('click', () => {
+            editId = b.dataset.ferEditar;
+            draft = { empresaId: '', ...state.feriados[editId] };
+            render();
+            $('#fer-form input')?.focus();
+        })
+    );
+    $$('[data-fer-excluir]').forEach((b) =>
+        b.addEventListener('click', async () => {
+            const id = b.dataset.ferExcluir;
+            if (!confirm('Excluir este feriado? A análise de faltas será recalculada.')) return;
+            try {
+                await gravar(`feriados/${id}`, null);
+                if (editId === id) zerar();
+                toast('Feriado excluído.');
+                render();
+            } catch {
+                toast('Não foi possível excluir.', 'erro');
+            }
+        })
+    );
+    $('#fer-anterior').addEventListener('click', () => {
+        pagina--;
+        render();
+    });
+    $('#fer-proximo').addEventListener('click', () => {
+        pagina++;
+        render();
+    });
+    $('#fer-exportar').addEventListener('click', () =>
+        exportarCSV('feriados.csv', [
+            ['Descrição', 'Data', 'Empresa'],
+            ...itens('feriados').map((f) => [
+                f.descricao,
+                f.data,
+                f.empresaId ? empresaPorId(f.empresaId)?.nome || 'Empresa' : 'Todas'
+            ])
+        ])
+    );
+}
