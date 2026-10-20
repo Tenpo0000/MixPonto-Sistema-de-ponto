@@ -1,6 +1,7 @@
 import { $, $$, ICONES } from './core/utils.js';
 import { state, funcionariosAtivos, pendencias } from './core/state.js';
-import { db, usandoFirebase } from './core/db.js';
+import { db } from './core/db.js';
+import { registrosIntegrados } from './core/registros-integrados.js';
 import { toast, abrirModal } from './core/ui.js';
 import * as inicio from './pages/inicio.js';
 import * as cadastro from './pages/cadastro.js';
@@ -8,6 +9,7 @@ import * as movimentacoes from './pages/movimentacoes.js';
 import * as usuarios from './pages/usuarios.js';
 import * as gerenciamento from './pages/gerenciamento.js';
 import { perfilId, preencherHeader } from './core/preferencias.js';
+import { preencherEmpresaHeader } from './core/empresa-login.js';
 import * as empresa from './pages/empresa.js';
 import * as horario from './pages/horario.js';
 import * as funcionario from './pages/funcionario.js';
@@ -18,28 +20,6 @@ import * as justificativa from './pages/justificativa.js';
 import * as relatorio from './pages/relatorio.js';
 import * as demitidos from './pages/demitidos.js';
 
-function paginaProvisoria(grupo, titulo, descricao) {
-    return {
-        view: () => `
-            <div class="breadcrumb">
-                <span>${grupo}</span>
-                <span>›</span>
-                <span class="destacado">${titulo}</span>
-            </div>
-            <div class="cabecalho-pagina">
-                <div>
-                    <h1>${titulo}</h1>
-                    <p>${descricao}</p>
-                </div>
-            </div>
-            <div class="vazio">
-                <h2>${titulo}</h2>
-                <p>Esta tela ainda está em construção.</p>
-            </div>
-        `,
-        bind() {}
-    };
-}
 const configuracoes = gerenciamento;
 const PAGES = {
     inicio,
@@ -76,6 +56,9 @@ const grupoDe = (view) => Object.keys(GRUPOS).find((g) => GRUPOS[g].includes(vie
 let viewAtual = 'inicio',
     termoBusca = '',
     agendado = false;
+const fontesBatidas = { registros: {}, batidasMobile: {} };
+const fontesCarregadas = { registros: false, batidasMobile: false };
+const permissao = window.fb?.contaAtiva?.permissao || 'administrador';
 
 function abrirSubmenu(grupo, abrir) {
     $(`#submenu-${grupo}`).hidden = !abrir;
@@ -92,6 +75,7 @@ function aplicarBusca() {
 function render() {
     const pagina = PAGES[viewAtual];
     preencherHeader();
+    preencherEmpresaHeader();
     $('#view').innerHTML = pagina.view();
     pagina.bind?.({ render });
     const grupo = grupoDe(viewAtual) || viewAtual;
@@ -105,6 +89,7 @@ function render() {
 function rota() {
     const h = location.hash.replace('#', '');
     viewAtual = PAGES[h] ? h : 'inicio';
+    if (viewAtual === 'usuarios' && permissao !== 'administrador') viewAtual = 'inicio';
     const g = grupoDe(viewAtual);
     if (g) abrirSubmenu(g, true);
     render();
@@ -139,6 +124,8 @@ function iniciar() {
     $$('.submenu-item').forEach((b) =>
         b.addEventListener('click', () => (location.hash = b.dataset.view))
     );
+    const menuUsuarios = $('[data-view="usuarios"]');
+    if (menuUsuarios) menuUsuarios.hidden = permissao !== 'administrador';
     $('#btn-sobre').innerHTML = `${ICONES.info}<span>Sobre</span>`;
     $('#btn-sobre').addEventListener('click', () =>
         abrirModal({
@@ -151,7 +138,7 @@ function iniciar() {
                     Database.
                 </p>
                 <p class="dica" style="margin-top:12px">
-                    ${usandoFirebase ? 'Conectado ao Firebase.' : 'Firebase indisponível: rodando em modo local.'}
+                    Conectado ao Firebase.
                 </p>
             `
         })
@@ -178,6 +165,9 @@ function iniciar() {
     [
         'funcionarios',
         'registros',
+        'batidasMobile',
+        'mobileAcessos',
+        'credenciaisApp',
         'ajustes',
         'feriados',
         'config',
@@ -190,11 +180,25 @@ function iniciar() {
         'desligamentos',
         'usuarios'
     ].forEach((p) =>
+        {
+        if (permissao === 'visualizador' && (p === 'credenciaisApp' || p === 'usuarios')) {
+            state[p] = {}; state.carregados[p] = true; return;
+        }
         db.listen(p, (v) => {
-            state[p] = v || {};
-            state.carregados[p] = true;
+            if (p === 'registros' || p === 'batidasMobile') {
+                fontesBatidas[p] = v || {};
+                fontesCarregadas[p] = true;
+                state.registros = registrosIntegrados(fontesBatidas.registros, fontesBatidas.batidasMobile);
+                state.batidasMobile = fontesBatidas.batidasMobile;
+                state.carregados.registros = fontesCarregadas.registros && fontesCarregadas.batidasMobile;
+                state.carregados.batidasMobile = fontesCarregadas.batidasMobile;
+            } else {
+                state[p] = v || {};
+                state.carregados[p] = true;
+            }
             agendar();
-        })
+        });
+        }
     );
     db.listen(`preferencias/${perfilId()}`, (v) => {
         state.preferencias = v || {};

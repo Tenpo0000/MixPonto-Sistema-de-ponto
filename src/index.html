@@ -19,14 +19,6 @@
                                 Seu nome
                                 <input id="auth-nome" autocomplete="name" maxlength="160" />
                             </label>
-                            <label>
-                                Nome da empresa
-                                <input
-                                    id="auth-empresa"
-                                    autocomplete="organization"
-                                    maxlength="160"
-                                />
-                            </label>
                         </div>
                         <label>
                             E-mail
@@ -57,11 +49,17 @@
                     </fieldset>
                 </form>
                 <p id="auth-mensagem" role="status" aria-live="polite">Preparando acesso seguro…</p>
+                <div id="auth-compartilhado" hidden>
+                    <div id="auth-contas-lista"></div>
+                    <button type="button" class="btn btn-primario" id="auth-verificar-email">Enviar confirmação de e-mail</button>
+                    <button type="button" class="btn btn-secundario" id="auth-conferir-contas">Verificar meus acessos</button>
+                    <button type="button" class="mov-link" id="auth-sair">Sair desta conta</button>
+                </div>
                 <button type="button" class="mov-link" id="auth-recuperar">
                     Esqueci minha senha
                 </button>
                 <button type="button" class="mov-link" id="auth-alternar">
-                    Criar uma conta para minha empresa
+                    Criar meu login
                 </button>
                 <button type="button" class="btn btn-secundario" id="auth-recarregar" hidden>
                     Recarregar Página
@@ -144,6 +142,9 @@
                     </label>
                     <div class="info-usuario">
                         <span id="sessao-email" class="sessao-email"></span>
+                        <select id="sessao-conta" aria-label="Empresa em uso"></select>
+                        <select id="sessao-empresa" aria-label="Empresa para login no aplicativo" hidden></select>
+                        <span class="sessao-empresa-id">ID da empresa para o app: <code id="sessao-id-empresa"></code></span>
                         <button type="button" class="btn btn-secundario btn-sair" id="btn-sair">
                             Sair
                         </button>

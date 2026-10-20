@@ -1,7 +1,7 @@
 import { empresasDisponiveis } from '../core/empresas.js';
 import { $, $$, esc, iniciais, DIAS_CURTO } from '../core/utils.js';
 import { state, cfg } from '../core/state.js';
-import { db, usandoFirebase } from '../core/db.js';
+import { db } from '../core/db.js';
 import { campo, carregado, executar, erroForm, gravar } from '../core/cadastros.js';
 import { perfilAtual, alertasAtuais, perfilId } from '../core/preferencias.js';
 import { abrirModal, toast } from '../core/ui.js';
@@ -280,7 +280,7 @@ export function view() {
                     <section class="conf-status">
                         <header>
                             <small>
-                                ${carregado('preferencias') ? (usandoFirebase ? 'Firebase' : 'Modo Local') : 'Carregando'}
+                                ${carregado('preferencias') ? 'Firebase' : 'Carregando'}
                             </small>
                         </header>
                         <h2>Status do Perfil</h2>

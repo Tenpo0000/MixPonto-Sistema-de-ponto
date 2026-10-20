@@ -6,6 +6,9 @@ import { pad, dateKey, parseKey, lista, porNome } from './utils.js';
 export const state = {
     funcionarios: {},
     registros: {},
+    batidasMobile: {},
+    mobileAcessos: {},
+    credenciaisApp: {},
     ajustes: {},
     feriados: {},
     config: {},

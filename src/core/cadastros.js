@@ -1,6 +1,6 @@
 import { $, esc, lista } from './utils.js';
 import { state } from './state.js';
-import { db, usandoFirebase } from './db.js';
+import { db } from './db.js';
 import { toast } from './ui.js';
 
 export const chave = (s) =>

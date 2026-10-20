@@ -4,7 +4,7 @@ import { $, $$, esc, lista, porNome, fmtData, parseKey } from '../core/utils.js'
 import { state } from '../core/state.js';
 import { cabecalho, semDados, aguarde, carregado } from '../core/cadastros.js';
 import { novoFuncionario, editarFuncionario } from './funcionario.js';
-import { toast } from '../core/ui.js';
+
 
 export function view() {
     const fs = lista(state.funcionarios).sort(porNome);

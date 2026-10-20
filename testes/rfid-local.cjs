@@ -7,6 +7,7 @@ function modulo(funcionarios = {}, falhar = false) {
     const chamadas = [];
     const c = vm.createContext({
         state: { funcionarios },
+        admissionMs: (date) => Date.parse(`${date}T00:00:00-03:00`),
         db: {
             update: async (value) => {
                 chamadas.push(JSON.parse(JSON.stringify(value)));
@@ -45,6 +46,18 @@ test('novo cadastro e vinculo sao enviados em um unico lote', async () => {
         'funcionarios/f1': { nome: 'Maria', cartaoUid: '626BD163', cartaoVersao: 1 },
         'cartoes/626BD163': 'f1'
     });
+});
+test('salvar cadastro com acesso existente sincroniza admissão sem alterar senha ou autorização', async () => {
+    const r = modulo();
+    await r.salvarFuncionarioComCartao('f1', {
+        nome: 'Maria', cartaoUid: '', appAuthUid: 'worker', emailApp: 'maria@example.com', admissao: '2026-10-20'
+    });
+    assert.equal(r.chamadas.length, 1);
+    assert.deepEqual(r.chamadas[0]['mobileConfig/f1'], {
+        admissao: '2026-10-20', admissaoEm: Date.parse('2026-10-20T03:00:00Z'), empresa: 'Sua empresa'
+    });
+    assert.equal(r.chamadas[0]['funcionarios/f1'].emailApp, 'maria@example.com');
+    assert.ok(!Object.keys(r.chamadas[0]).some((key) => key.includes('acessosMobile')));
 });
 test('troca remove o indice antigo e cria o novo junto com o cadastro', async () => {
     const r = modulo({ f1: { cartaoUid: '626BD163', cartaoVersao: 3 } });

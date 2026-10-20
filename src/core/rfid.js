@@ -1,6 +1,7 @@
 /* Vínculo RFID salvo com o funcionário em uma atualização atômica. */
 import { state } from './state.js';
 import { db } from './db.js';
+import { admissionMs } from './batidas.mjs';
 
 export const normalizarCartao = (valor) =>
     String(valor || '')
@@ -33,6 +34,13 @@ export async function salvarFuncionarioComCartao(id, funcionario) {
         cartaoVersao: Number(anterior.cartaoVersao || 0) + 1
     };
     const mudancas = { [`funcionarios/${id}`]: salvo };
+    if (salvo.appAuthUid) {
+        mudancas[`mobileConfig/${id}`] = {
+            admissao: salvo.admissao,
+            admissaoEm: admissionMs(salvo.admissao),
+            empresa: state.empresas?.[salvo.empresaId]?.nome || state.empresa?.nome || 'Sua empresa'
+        };
+    }
     if (antigo && antigo !== uid) mudancas[`cartoes/${antigo}`] = null;
     if (uid) mudancas[`cartoes/${uid}`] = id;
     await db.update(mudancas);

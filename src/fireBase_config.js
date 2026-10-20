@@ -9,7 +9,7 @@ import {
     update,
     get,
     runTransaction
-} from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+} from './core/firebase-tenant.js';
 import {
     getAuth,
     onAuthStateChanged,
@@ -23,7 +23,8 @@ import {
     updateProfile,
     EmailAuthProvider,
     reauthenticateWithCredential,
-    updatePassword
+    updatePassword,
+    sendEmailVerification
 } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
 
 const firebaseConfig = {
@@ -38,6 +39,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig),
     db = getDatabase(app),
     auth = getAuth(app);
+export { app, db, auth };
 window.fb = {
     app,
     db,
@@ -61,5 +63,6 @@ window.fb = {
     updateProfile,
     EmailAuthProvider,
     reauthenticateWithCredential,
-    updatePassword
+    updatePassword,
+    sendEmailVerification
 };

@@ -25,6 +25,8 @@ export function preencherHeader() {
         nome = document.querySelector('.usuario span'),
         avatar = document.querySelector('.info-usuario > .avatar');
     if (nome) nome.textContent = p.nome;
+    const papel = document.querySelector('.usuario small');
+    if (papel) papel.textContent = ({ administrador: 'ADMINISTRADOR', rh: 'RH', visualizador: 'VISUALIZADOR' })[window.fb?.contaAtiva?.permissao] || 'ADMINISTRADOR';
     if (avatar) {
         avatar.textContent =
             p.nome

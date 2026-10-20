@@ -1,9 +1,11 @@
 import { inicioJornada, fimJornada } from '../core/jornada.js';
-import { $, esc, dateKey, lista } from '../core/utils.js';
+import { $, $$, esc, dateKey, lista } from '../core/utils.js';
 import { state } from '../core/state.js';
 import { empresasDisponiveis, empresaPorId } from '../core/empresas.js';
 import { normalizarCartao, validarCartao, salvarFuncionarioComCartao } from '../core/rfid.js';
 import { toast } from '../core/ui.js';
+import { createEmployeeAccess } from '../core/employee-credentials.js';
+import { revokeMobile } from '../core/mobile-access.js';
 import {
     cabecalho,
     itens,
@@ -11,13 +13,17 @@ import {
     campo,
     opcoes,
     novoId,
-    executar,
     erroForm
 } from '../core/cadastros.js';
 
 let editId = null,
     draft = null,
-    fotoPendente = false;
+    fotoPendente = false,
+    mobileOcupado = false,
+    mobileEmail = null,
+    mobileSenha = null,
+    mobileConfirmar = null,
+    mobileMensagem = '';
 const novo = () => ({
     nome: '',
     cpf: '',
@@ -35,12 +41,18 @@ const novo = () => ({
 export function editarFuncionario(id) {
     editId = id;
     draft = { ...novo(), ...state.funcionarios[id] };
+    mobileEmail = null;
+    mobileSenha = mobileConfirmar = null;
+    mobileMensagem = '';
     location.hash = 'funcionario';
 }
 
 export function novoFuncionario() {
     editId = null;
     draft = novo();
+    mobileEmail = null;
+    mobileSenha = mobileConfirmar = null;
+    mobileMensagem = '';
     location.hash = 'funcionario';
 }
 
@@ -61,6 +73,67 @@ function legado(tipo) {
               <option value="__legado" selected>${esc(draft[tipo])} (cadastro antigo)</option>
           `
         : '';
+}
+
+function acessoSalvo() {
+    const acessos = Object.entries(state.mobileAcessos || {})
+        .filter(([, acesso]) => acesso.funcionarioId === editId)
+        .map(([uid, acesso]) => ({ uid, ...acesso }));
+    const acesso = acessos.find((item) => item.ativo) || acessos[0];
+    const funcionario = state.funcionarios[editId] || draft || {};
+    return {
+        uid: funcionario.appAuthUid || acesso?.uid || '',
+        email: funcionario.emailApp || acesso?.email || ''
+    };
+}
+
+function credencialSalva() {
+    const acesso = acessoSalvo();
+    const credencial = state.credenciaisApp?.[editId];
+    return credencial?.authUid === acesso.uid && credencial?.email === acesso.email
+        ? credencial
+        : null;
+}
+
+function acessoPeloAplicativo() {
+    const acessos = Object.entries(state.mobileAcessos || {}).filter(
+        ([, acesso]) => acesso.funcionarioId === editId
+    );
+    const bloqueado = draft.status !== 'ativo' || mobileOcupado ||
+        (window.fb.contaAtiva?.permissao && window.fb.contaAtiva.permissao !== 'administrador');
+    const salvo = acessoSalvo();
+    const email = mobileEmail ?? salvo.email;
+    return `
+        <section class="cad-card" id="func-acesso-app">
+            <h2>Acesso pelo aplicativo</h2>
+            <p class="cad-ajuda">
+                Defina o e-mail e a senha que o funcionário usará para entrar no aplicativo e bater ponto.
+                Os dados de acesso são salvos ao clicar em Salvar Funcionário.
+            </p>
+            ${salvo.uid && !credencialSalva() ? '<p class="cad-ajuda cad-espaco">Este acesso foi criado antes da exibição de senhas. Informe a senha atual e salve uma vez para mantê-la visível neste cadastro.</p>' : ''}
+            <div class="cad-duas-colunas cad-espaco">
+                <label class="cad-campo">
+                    <span>E-mail de acesso ao aplicativo</span>
+                    <input id="func-mobile-email" type="email" value="${esc(email)}" autocomplete="off" maxlength="254" ${bloqueado ? 'disabled' : ''} />
+                </label>
+                <label class="cad-campo">
+                    <span>Senha de acesso ao aplicativo</span>
+                    <input id="func-mobile-senha" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" minlength="8" placeholder="${salvo.uid ? 'Informe a senha atual para exibi-la' : 'Defina a senha do aplicativo'}" ${bloqueado ? 'disabled' : ''} />
+                </label>
+                <label class="cad-campo">
+                    <span>Confirmar senha</span>
+                    <input id="func-mobile-confirmar" type="password" autocomplete="new-password" minlength="8" ${bloqueado ? 'disabled' : ''} />
+                </label>
+            </div>
+            <p class="cad-ajuda cad-espaco">O e-mail e a senha ficam visíveis neste cadastro para o administrador. Mantenha os valores preenchidos para conservar o acesso atual. Use ao menos 8 caracteres ao criar o acesso.</p>
+            <p id="func-mobile-mensagem" class="cad-ajuda cad-espaco" role="status" aria-live="polite">${esc(mobileMensagem)}</p>
+            ${salvo.uid && state.mobileAcessos?.[salvo.uid]?.ativo === false ? `<button id="func-mobile-liberar" type="submit" class="btn btn-primario" ${bloqueado ? 'disabled' : ''}>Salvar e liberar acesso novamente</button>` : ''}
+            ${acessos.length ? `<h3 class="cad-espaco">Acessos deste funcionário</h3>${acessos.map(([uid, acesso]) => `
+                <p class="cad-ajuda cad-espaco">${esc(acesso.email)} · ${acesso.ativo ? 'Autorizado' : 'Revogado'}
+                    ${acesso.ativo ? `<button type="button" class="btn btn-perigo cad-btn-peq" data-mobile-revogar="${esc(uid)}" ${bloqueado ? 'disabled' : ''}>Revogar acesso</button>` : ''}
+                </p>`).join('')}` : ''}
+        </section>
+    `;
 }
 
 export function view() {
@@ -85,21 +158,21 @@ export function view() {
                 editId ? 'Editar Funcionário' : 'Cadastro de Funcionários',
                 'Preencha as informações abaixo para registrar um colaborador no sistema.',
                 `
-                    <button type="button" class="btn btn-secundario" id="func-cancelar">
+                    <button type="button" class="btn btn-secundario" id="func-cancelar" ${mobileOcupado ? 'disabled' : ''}>
                         Cancelar
                     </button>
                     <button
                         class="btn btn-primario"
                         type="submit"
                         form="func-form"
-                        ${!pronto ? 'disabled' : ''}
+                        ${!pronto || mobileOcupado ? 'disabled' : ''}
                     >
                         Salvar Funcionário
                     </button>
                 `
             )}
             <form id="func-form" novalidate>
-                <fieldset class="cad-fieldset" ${!pronto ? 'disabled' : ''}>
+                <fieldset class="cad-fieldset" ${!pronto || mobileOcupado ? 'disabled' : ''}>
                     <div class="cad-grid cad-grid-func">
                         <div class="cad-pilha">
                             <section class="cad-card">
@@ -138,6 +211,7 @@ export function view() {
                                     pertence a um funcionário nesta empresa.
                                 </p>
                             </section>
+                            ${acessoPeloAplicativo()}
                             <section class="cad-card">
                                 <h2>Vínculos Institucionais</h2>
                                 <p class="cad-ajuda">
@@ -255,6 +329,30 @@ export function validarFuncionario(d, id) {
 
 export function bind({ render }) {
     const form = $('#func-form');
+    $('#func-mobile-email').value = mobileEmail ?? acessoSalvo().email;
+    $('#func-mobile-email').addEventListener('input', (e) => { mobileEmail = e.target.value; });
+    $('#func-mobile-senha').value = mobileSenha ?? credencialSalva()?.senha ?? '';
+    $('#func-mobile-confirmar').value = mobileConfirmar ?? credencialSalva()?.senha ?? '';
+    $('#func-mobile-senha').addEventListener('input', (e) => { mobileSenha = e.target.value; });
+    $('#func-mobile-confirmar').addEventListener('input', (e) => { mobileConfirmar = e.target.value; });
+    $$('[data-mobile-revogar]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            if (mobileOcupado || !confirm('Revogar este acesso ao aplicativo? As batidas serão mantidas.')) return;
+            const id = editId;
+            mobileOcupado = true;
+            const uid = button.dataset.mobileRevogar;
+            render();
+            try {
+                await revokeMobile(window.fb.db, window.fb.contaAtiva?.id || window.fb.auth.currentUser.uid, uid);
+                if (editId === id) mobileMensagem = 'Acesso revogado. O histórico foi mantido.';
+            } catch (error) {
+                if (editId === id) mobileMensagem = error.message || 'Não foi possível revogar o acesso.';
+            } finally {
+                mobileOcupado = false;
+                if (location.hash === '#funcionario') render();
+            }
+        });
+    });
     form.addEventListener('input', (e) => {
         if (!(e.target.name in draft)) return;
         if (e.target.name === 'cpf') e.target.value = cpfMask(e.target.value);
@@ -264,6 +362,8 @@ export function bind({ render }) {
         if (e.target.name in draft) draft[e.target.name] = e.target.value;
     });
     $('#func-cancelar').addEventListener('click', () => {
+        mobileSenha = mobileConfirmar = null;
+        mobileEmail = null;
         editId = null;
         draft = null;
         location.hash = 'cadastro';
@@ -311,13 +411,14 @@ export function bind({ render }) {
     });
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (form.dataset.salvando) return;
+        if (form.dataset.salvando || mobileOcupado) return;
         if (fotoPendente) return erroForm(form, 'Aguarde o processamento da foto.');
         if (
             !carregado('funcionarios', 'empresa', 'empresas', 'cargos', 'departamentos', 'horarios')
         )
             return;
-        const f = Object.fromEntries(new FormData(form));
+        const camposFuncionario = ['nome', 'cpf', 'matricula', 'admissao', 'status', 'empresaId', 'departamentoId', 'cargoId', 'horarioId', 'cartaoUid'];
+        const f = Object.fromEntries([...new FormData(form)].filter(([campo]) => camposFuncionario.includes(campo)));
         for (const k of ['nome', 'matricula', 'cpf', 'admissao']) f[k] = (f[k] || '').trim();
         f.cpf = cpfMask(f.cpf);
         f.cartaoUid = normalizarCartao(f.cartaoUid);
@@ -333,6 +434,33 @@ export function bind({ render }) {
                 form,
                 'Cadastre como ativo. Para registrar demissão ou reativação, use Movimentações → Funcionários demitidos.'
             );
+        const acessoAnterior = acessoSalvo();
+        const email = $('#func-mobile-email').value.trim().toLowerCase();
+        const password = $('#func-mobile-senha').value;
+        const confirmation = $('#func-mobile-confirmar').value;
+        // Confirma também o vínculo no servidor, mesmo com os campos inalterados.
+        const revogado = acessoAnterior.uid && state.mobileAcessos?.[acessoAnterior.uid]?.ativo === false;
+        const papel = globalThis.window?.fb?.contaAtiva?.permissao;
+        const podeLiberar = !papel || papel === 'administrador';
+        const configurarAcesso = podeLiberar && !!password && (!revogado || e.submitter?.id === 'func-mobile-liberar');
+        if (revogado && !configurarAcesso && password &&
+            (password !== credencialSalva()?.senha || email !== acessoAnterior.email))
+            return erroForm(form, 'Para configurar estas credenciais e reativar o aplicativo, use Salvar e liberar acesso novamente.');
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+            return erroForm(form, 'Informe um e-mail válido para o aplicativo.');
+        if (password !== confirmation)
+            return erroForm(form, 'Preencha a mesma senha nos dois campos.');
+        if (password && (!email || password.length < 8))
+            return erroForm(form, 'Informe o e-mail e uma senha com pelo menos 8 caracteres.');
+        if (email && !password && (!acessoAnterior.uid || email !== acessoAnterior.email.toLowerCase()))
+            return erroForm(form, 'Para criar um acesso ou definir outro e-mail, preencha também a senha e sua confirmação.');
+        if (!email && acessoAnterior.uid)
+            return erroForm(form, 'O e-mail identifica o acesso existente. Para bloquear o aplicativo, use Revogar acesso.');
+        if (password && f.status !== 'ativo')
+            return erroForm(form, 'Somente funcionários ativos podem receber acesso ao aplicativo.');
+        mobileEmail = email;
+        mobileSenha = password;
+        mobileConfirmar = confirmation;
         const agora = new Date();
         const salvo = {
             ...(editId ? state.funcionarios[editId] : {}),
@@ -340,6 +468,10 @@ export function bind({ render }) {
             foto: draft.foto || '',
             ...(!editId ? { dataCadastro: dateKey(agora), cadastradoEm: agora.toISOString() } : {})
         };
+        if (acessoAnterior.uid) {
+            salvo.emailApp = acessoAnterior.email;
+            salvo.appAuthUid = acessoAnterior.uid;
+        }
         for (const [tipo, colecao] of [
             ['cargo', 'cargos'],
             ['departamento', 'departamentos']
@@ -361,16 +493,42 @@ export function bind({ render }) {
             salvo.entrada = inicioJornada(dia?.horarios) || '08:00';
             salvo.saida = fimJornada(dia?.horarios) || '17:00';
         }
-        if (
-            await executar(
-                form,
-                () => salvarFuncionarioComCartao(editId || novoId('funcionarios'), salvo),
-                editId ? 'Funcionário atualizado.' : 'Funcionário cadastrado.'
-            )
-        ) {
-            editId = null;
-            draft = null;
-            location.hash = 'cadastro';
+        const id = editId || novoId('funcionarios');
+        let cadastroSalvo = false;
+        form.dataset.salvando = 'true';
+        mobileOcupado = true;
+        mobileMensagem = configurarAcesso ? 'Salvando cadastro e acesso ao aplicativo…' : 'Salvando funcionário…';
+        render();
+        try {
+            await salvarFuncionarioComCartao(id, salvo);
+            cadastroSalvo = true;
+            editId = id;
+            draft = { ...salvo, ...(state.funcionarios[id] || {}) };
+            if (configurarAcesso) {
+                const acesso = await createEmployeeAccess({ auth: window.fb.auth, db: window.fb.db, owner: window.fb.contaAtiva?.id || window.fb.auth.currentUser.uid, fid: id, email, password });
+                const metadata = { emailApp: acesso.email, appAuthUid: acesso.uid };
+                state.funcionarios[id] = { ...(state.funcionarios[id] || salvo), ...metadata };
+                Object.assign(draft, metadata);
+                state.credenciaisApp ||= {};
+                state.credenciaisApp[id] = { email: acesso.email, authUid: acesso.uid, senha: password };
+                mobileEmail = acesso.email;
+                mobileMensagem = 'Funcionário e acesso salvos. O e-mail e a senha permanecem visíveis no cadastro.';
+            } else {
+                mobileMensagem = acessoAnterior.uid
+                    ? 'Funcionário salvo. O e-mail e a senha cadastrados foram mantidos.'
+                    : 'Funcionário salvo.';
+            }
+            mobileSenha = mobileConfirmar = null;
+            toast(mobileMensagem);
+        } catch (error) {
+            mobileMensagem = cadastroSalvo
+                ? `O cadastro foi salvo, mas o acesso ao aplicativo não foi confirmado. ${error.message || 'Confira a conexão e tente novamente com os mesmos dados.'}`
+                : 'Não foi possível salvar o cadastro. Confira a conexão e as permissões do banco.';
+            toast(mobileMensagem, 'erro');
+        } finally {
+            delete form.dataset.salvando;
+            mobileOcupado = false;
+            if (location.hash === '#funcionario' || location.hash === 'funcionario') render();
         }
     });
 }

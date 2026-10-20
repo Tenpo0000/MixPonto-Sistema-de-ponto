@@ -16,16 +16,7 @@ import {
     lista,
     porNome
 } from '../core/utils.js';
-import {
-    state,
-    cfg,
-    funcionariosAtivos,
-    batidas,
-    analisarDia,
-    resumoMes,
-    sequencia,
-    cargaPrevista
-} from '../core/state.js';
+import { state, funcionariosAtivos, batidas, analisarDia, sequencia } from '../core/state.js';
 import { toast, abrirModal, fecharModal } from '../core/ui.js';
 import { vazio, vazioInicialBotoes, bindIr } from '../core/componentes.js';
 import { itens, novoId, gravar, executar, erroForm, carregado } from '../core/cadastros.js';

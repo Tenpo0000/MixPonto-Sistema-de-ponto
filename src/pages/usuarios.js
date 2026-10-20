@@ -1,4 +1,4 @@
-import { $, $$, esc, lista, iniciais, corAvatar, dateKey } from '../core/utils.js';
+import { $, $$, esc, iniciais, corAvatar, dateKey } from '../core/utils.js';
 import { state } from '../core/state.js';
 import {
     carregado,
@@ -6,11 +6,11 @@ import {
     itens,
     chave,
     novoId,
-    gravar,
     executar,
     erroForm
 } from '../core/cadastros.js';
 import { abrirModal, fecharModal, toast } from '../core/ui.js';
+import { salvarUsuarioComAcesso } from '../core/contas.js';
 
 let pagina = 0;
 const papeis = { administrador: 'Administrador', rh: 'RH', visualizador: 'Visualizador' };
@@ -55,6 +55,7 @@ export function view() {
                     <p>Visualize, adicione e gerencie os perfis cadastrados no sistema.</p>
                 </div>
                 <button class="btn btn-primario" id="usr-novo">Novo Usuário</button>
+                <button class="btn btn-secundario" id="usr-ativar">Ativar acessos dos perfis existentes</button>
             </div>
             <div class="conf-indicadores">
                 ${[
@@ -158,8 +159,9 @@ export function view() {
                 </footer>
             </section>
             <p class="conf-nota">
-                O login titular é o proprietário desta empresa. Os demais perfis desta lista são
-                registros administrativos: não criam logins nem compartilham o acesso da empresa.
+                Salvar um usuário libera esta empresa para o e-mail informado. A mesma pessoa pode
+                receber acesso a outras empresas. Bloquear o perfil retira o acesso a esta empresa.
+                O usuário entra com sua própria senha e confirma seu e-mail antes do primeiro acesso compartilhado.
             </p>
         </div>
     `;
@@ -180,7 +182,7 @@ function formulario(id) {
             )
             .join(
                 ''
-            )}</select></label><label class="cad-campo"><span>Situação do perfil</span><select name="status"><option value="ativo" ${u.status !== 'bloqueado' ? 'selected' : ''}>Ativo</option><option value="bloqueado" ${u.status === 'bloqueado' ? 'selected' : ''}>Bloqueado</option></select></label></div><p class="dica">Para outra empresa, crie uma conta na tela de acesso. Perfis adicionais aqui não recebem credenciais de login.</p><p class="erro" data-erro hidden></p>`,
+            )}</select></label><label class="cad-campo"><span>Situação do perfil</span><select name="status"><option value="ativo" ${u.status !== 'bloqueado' ? 'selected' : ''}>Ativo</option><option value="bloqueado" ${u.status === 'bloqueado' ? 'selected' : ''}>Bloqueado</option></select></label></div><p class="dica">Informe o e-mail usado pela pessoa para entrar no site. Ela mantém sua senha atual. Se ainda não tem login, poderá criar um na tela de acesso.</p><p class="erro" data-erro hidden></p>`,
         aoAbrir: (c) => {
             const form = $('form', c);
             $('.modal-rodape', c).insertAdjacentHTML(
@@ -205,7 +207,8 @@ function formulario(id) {
                 if (
                     await executar(
                         form,
-                        () => gravar(`usuarios/${id || novoId('usuarios')}`, payload),
+                        () => salvarUsuarioComAcesso(window.fb, window.fb.contaAtiva?.id || window.fb.auth.currentUser.uid,
+                            id || novoId('usuarios'), u, payload, state.empresa?.nome || Object.values(state.empresas || {})[0]?.nome),
                         'Usuário salvo.'
                     )
                 )
@@ -221,6 +224,21 @@ function formulario(id) {
 }
 
 export function bind({ render }) {
+    $('#usr-ativar').addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+            for (const u of itens('usuarios').filter((item) => !item.titular)) {
+                const usuario = { ...u, email: u.email.trim().toLowerCase() };
+                const erro = validarUsuario(usuario, u.id);
+                if (erro) throw Error(`${u.nome}: ${erro}`);
+                await salvarUsuarioComAcesso(window.fb, window.fb.contaAtiva?.id || window.fb.auth.currentUser.uid,
+                    u.id, u, usuario, state.empresa?.nome || Object.values(state.empresas || {})[0]?.nome);
+            }
+            toast('Permissões dos perfis existentes atualizadas.');
+        } catch (error) { toast(error.message || 'Não foi possível atualizar os acessos.', 'erro'); }
+        finally { button.disabled = false; }
+    });
     $('#usr-novo').addEventListener('click', () => formulario());
     $$('[data-usr-editar]').forEach((b) =>
         b.addEventListener('click', () => formulario(b.dataset.usrEditar))

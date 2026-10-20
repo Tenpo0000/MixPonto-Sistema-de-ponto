@@ -4,6 +4,7 @@ import { toast } from '../core/ui.js';
 import { state } from '../core/state.js';
 import { empresasDisponiveis, empresaPorId } from '../core/empresas.js';
 import { cabecalho, carregado, semDados, aguarde } from '../core/cadastros.js';
+import { codigoLoginEmpresa, publicarIdEmpresa } from '../core/empresa-id.js';
 
 const UFS = [
     'AC',
@@ -97,6 +98,7 @@ function formularioView() {
                     <legend class="emp-sr">Dados da empresa e do responsável</legend>
                     <section class="emp-card emp-gerais" aria-labelledby="emp-titulo-gerais">
                         <h2 id="emp-titulo-gerais">Informações Gerais</h2>
+                        <p class="emp-aviso">ID da empresa para o app: <strong>${esc(codigoLoginEmpresa(empresaPorId(editId)) || 'Gerado automaticamente ao salvar')}</strong></p>
                         <div class="emp-grade-gerais">
                             <div class="emp-nome">
                                 ${campo('nome', 'Nome da Empresa', 'Ex: Inova Soluções Tecnológicas', 'autocomplete="organization" required maxlength="160"')}
@@ -216,6 +218,7 @@ export function view() {
                                         <thead>
                                             <tr>
                                                 <th>Empresa</th>
+                                                <th>ID para o app</th>
                                                 <th>CNPJ/CPF</th>
                                                 <th>Cidade / UF</th>
                                                 <th>Responsável</th>
@@ -229,6 +232,7 @@ export function view() {
                                                     (e) => `
                                                         <tr data-busca>
                                                             <td><strong>${esc(e.nome)}</strong></td>
+                                                            <td>${esc(codigoLoginEmpresa(e) || 'Preparando…')}</td>
                                                             <td>${esc(e.documento || '—')}</td>
                                                             <td>
                                                                 ${esc([e.cidade, e.uf].filter(Boolean).join(' / ') || '—')}
@@ -429,8 +433,8 @@ export function bind({ render }) {
         salvando = true;
         render();
         try {
-            if (editId === 'padrao') await db.set('empresa', payload);
-            else await db.set(`empresas/${editId || db.novoId('empresas')}`, payload);
+            editId ||= db.novoId('empresas');
+            await publicarIdEmpresa(window.fb, window.fb.contaAtiva.id, { id: editId }, payload);
             dados = vazio();
             editId = null;
             formulario = false;

@@ -4,11 +4,12 @@ const test = require('node:test'),
     fs = require('node:fs'),
     path = require('node:path');
 const root = path.resolve(__dirname, '../src');
-function carregar(uid) {
+function carregar(uid, conta) {
     const chamadas = [],
         callbacks = [],
         eventos = {};
     const fb = {
+        ...(conta ? { contaAtiva: { id: conta } } : {}),
         auth: { currentUser: uid ? { uid } : null },
         db: {},
         ref: (db, p) => ({ path: p }),
@@ -57,6 +58,19 @@ test('rejeita travessia, caminho absoluto e sessão trocada', async () => {
     a.fb.auth.currentUser = { uid: 'B' };
     assert.throws(() => a.db.set('empresa', {}), /sessão/);
 });
+
+test('usuário compartilhado usa a empresa escolhida e callbacks antigos param após troca', async () => {
+    const a = carregar('usuario', 'empresaA');
+    let recebidos = 0;
+    a.db.listen('funcionarios', () => recebidos++);
+    await a.db.set('empresa', { nome: 'A' });
+    assert.equal(a.chamadas[0][1], 'contas/empresaA/funcionarios');
+    assert.equal(a.chamadas[1][1], 'contas/empresaA/empresa');
+    a.fb.contaAtiva.id = 'empresaB';
+    a.callbacks[0]({ val: () => ({}) });
+    assert.equal(recebidos, 0);
+    assert.throws(() => a.db.set('empresa', {}), /sessão/);
+});
 test('callbacks antigos não entregam dados após troca de conta', () => {
     const a = carregar('A');
     let recebidos = 0;
@@ -73,7 +87,7 @@ test('novoId/gravar e cadastro de empresa usam apenas a camada isolada', () => {
         e = fs.readFileSync(path.join(root, 'pages/empresa.js'), 'utf8');
     assert(h.includes('return db.novoId(path)'));
     assert(h.includes('return db.set(path, val)'));
-    assert(e.includes("await db.set('empresa', payload)"));
+    assert(e.includes('await publicarIdEmpresa(window.fb, window.fb.contaAtiva.id'));
     assert(!e.includes('fb.set('));
 });
 test('regras negam raiz e dependem de auth.uid, não de permissão editável', () => {
@@ -83,11 +97,15 @@ test('regras negam raiz e dependem de auth.uid, não de permissão editável', (
     assert.equal(r['.read'], false);
     assert.equal(r['.write'], false);
     for (const op of ['.read', '.write']) {
-        const expr = r.contas.$uid[op],
-            avaliar = (auth, $uid) => Function('auth', '$uid', 'return ' + expr)(auth, $uid);
+        const [variavel, conta] = Object.entries(r.contas).find(([key]) => key.startsWith('$'));
+        const expr = conta[op];
+        const avaliar = (auth, uid, titular = true) => Function('auth', variavel, 'root', 'return ' + expr)(
+            auth && { ...auth, token: { email: null } }, uid, { child: () => ({ child: () => ({ val: () => titular }) }) }
+        );
         assert.equal(avaliar(null, 'A'), false);
         assert.equal(avaliar({ uid: 'A' }, 'A'), true);
         assert.equal(avaliar({ uid: 'A' }, 'B'), false);
+        assert.equal(avaliar({ uid: 'A' }, 'A', false), false);
     }
 });
 test('inicialização cria apenas o espaço da conta e não sobrescreve dados existentes', async () => {
@@ -97,6 +115,7 @@ test('inicialização cria apenas o espaço da conta e não sobrescreve dados ex
         ref: (db, p) => p,
         db: {},
         get: async (p) => ({
+            val: () => dados[p.split('/')[1]]?.meta ?? null,
             exists: () => {
                 const uid = p.split('/')[1];
                 return !!dados[uid]?.meta;
@@ -104,9 +123,15 @@ test('inicialização cria apenas o espaço da conta e não sobrescreve dados ex
         }),
         runTransaction: async (p, fn) => {
             calls.push(p);
-            const uid = p.split('/')[1],
-                next = fn(dados[uid] ?? null);
-            if (next !== undefined) dados[uid] = next;
+            const [, uid, ...partes] = p.split('/');
+            const next = fn(partes.reduce((v, k) => v?.[k], dados[uid]) ?? null);
+            if (next === undefined) return;
+            if (!partes.length) dados[uid] = next;
+            else {
+                let alvo = dados[uid] ||= {};
+                for (const k of partes.slice(0, -1)) alvo = alvo[k] ||= {};
+                alvo[partes.at(-1)] = next;
+            }
         }
     };
     const context = vm.createContext({ window: { fb }, document: {}, console });
@@ -124,5 +149,18 @@ test('inicialização cria apenas o espaço da conta e não sobrescreve dados ex
     dados.A.funcionarios = { f: { nome: 'Preservar' } };
     await context.seed({ uid: 'A', email: 'a@example.com' });
     assert.equal(dados.A.funcionarios.f.nome, 'Preservar');
-    assert.deepEqual(calls, ['contas/A', 'contas/B']);
+    assert.deepEqual(calls, ['contas/A', 'contas/A/meta/ownerUid', 'contas/B', 'contas/B/meta/ownerUid']);
+    dados.C = { funcionarios: { f: { nome: 'Legado' } }, meta: { criadoEm: 'antigo' } };
+    await context.seed({ uid: 'C' });
+    assert.equal(dados.C.meta.ownerUid, 'C');
+    assert.equal(dados.C.meta.criadoEm, 'antigo');
+    assert.equal(dados.C.funcionarios.f.nome, 'Legado');
+    dados.D = { funcionarios: { f: { nome: 'Sem meta' } } };
+    await context.seed({ uid: 'D' });
+    assert.equal(dados.D.meta.ownerUid, 'D');
+    assert.equal(dados.D.funcionarios.f.nome, 'Sem meta');
+    assert.equal(dados.D.config, undefined);
+    dados.E = { meta: { ownerUid: 'outro' } };
+    await assert.rejects(context.seed({ uid: 'E' }), /titular registrado/);
+    assert.equal(dados.E.meta.ownerUid, 'outro');
 });

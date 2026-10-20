@@ -4,13 +4,13 @@ import { toast } from './ui.js';
 const fb = window.fb,
     uid = fb?.auth?.currentUser?.uid;
 if (!uid) throw Error('Entre na sua conta antes de carregar o sistema.');
-export const usandoFirebase = true;
-const base = `contas/${uid}`,
+const conta = fb.contaAtiva?.id || uid;
+const base = `contas/${conta}`,
     assinaturas = new Set();
 let encerrado = false;
 
 function sessao() {
-    if (encerrado || fb.auth.currentUser?.uid !== uid)
+    if (encerrado || fb.auth.currentUser?.uid !== uid || (fb.contaAtiva?.id || uid) !== conta)
         throw Error('A sessão mudou. Entre novamente.');
 }
 
@@ -36,10 +36,11 @@ export const db = {
         const off = fb.onValue(
             r,
             (snap) => {
-                if (!encerrado && fb.auth.currentUser?.uid === uid) cb(snap.val());
+                if (!encerrado && fb.auth.currentUser?.uid === uid && (fb.contaAtiva?.id || uid) === conta) cb(snap.val());
             },
             (e) => {
                 console.error(e);
+                if (e.code === 'permission_denied') window.dispatchEvent(new Event('mixponto:acesso-revogado'));
                 if (!encerrado)
                     toast(
                         'Sem acesso aos dados da empresa. Confira as regras do Firebase e sua sessão.',

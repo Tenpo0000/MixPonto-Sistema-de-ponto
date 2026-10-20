@@ -4377,3 +4377,13 @@ svg.ico {
         display: none !important;
     }
 }
+
+/* Seleção e identificação da conta em uso. */
+#sessao-conta, #sessao-empresa { max-width: 220px; padding: 6px; border: 1px solid var(--cor-borda); border-radius: 6px; }
+#sessao-id-empresa { user-select: all; overflow-wrap: anywhere; }
+.sessao-empresa-id { font-size: 11px; color: #6a7791; max-width: 240px; }
+.sessao-empresa-id code { display: block; color: var(--cor-primaria); }
+.topo { flex-wrap: wrap; height: auto; min-height: 64px; gap: 12px; }
+.topo .info-usuario { flex-wrap: wrap; }
+#auth-contas-lista { display: grid; gap: 8px; margin-bottom: 12px; }
+#auth-compartilhado > button { margin-top: 8px; }

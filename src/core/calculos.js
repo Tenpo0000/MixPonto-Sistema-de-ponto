@@ -2,7 +2,7 @@ import { inicioControle } from './controle-ponto.js';
 import { inicioJornada } from './jornada.js';
 
 import { dateKey, parseKey, pad } from './utils.js';
-import { state, analisarDia, cargaPrevista, horarioDoDia, cfg } from './state.js';
+import { state, analisarDia, cargaPrevista, horarioDoDia } from './state.js';
 
 export function datasPeriodo(inicio, fim, limite = 366) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(inicio || '') || !/^\d{4}-\d{2}-\d{2}$/.test(fim || ''))

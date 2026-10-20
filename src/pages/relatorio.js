@@ -1,10 +1,10 @@
 import { empresasDisponiveis } from '../core/empresas.js';
-import { $, $$, esc, dateKey, fmtData, parseKey, lista, porNome } from '../core/utils.js';
+import { $, esc, dateKey, fmtData, parseKey, lista, porNome } from '../core/utils.js';
 import { state } from '../core/state.js';
 import { carregado, itens } from '../core/cadastros.js';
 import { resumoPeriodo, datasPeriodo, formatoTempo } from '../core/calculos.js';
 import { baixarExcel, imprimirTabela } from '../core/exportacoes.js';
-import { abrirModal, toast } from '../core/ui.js';
+import { abrirModal } from '../core/ui.js';
 
 const hoje = dateKey(new Date());
 let params = { inicio: hoje.slice(0, 7) + '-01', fim: hoje, setor: '', incluirDesligados: false };
