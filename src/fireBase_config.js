@@ -41,6 +41,7 @@ const app = initializeApp(firebaseConfig),
     auth = getAuth(app);
 export { app, db, auth };
 window.fb = {
+    contasApiUrl: document.querySelector('meta[name="mixponto-contas-api"]')?.content || '/api/contas',
     app,
     db,
     auth,

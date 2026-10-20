@@ -4,42 +4,30 @@ export function chaveEmail(email) {
         (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
 }
 
-export async function contasDisponiveis(fb, user) {
-    const contas = [];
+export async function contasDisponiveis(fb, user, contaId = null) {
+    const token = await user.getIdToken();
     try {
-        const meta = (await fb.get(fb.ref(fb.db, `contas/${user.uid}/meta`))).val();
-        if (meta?.ownerUid === user.uid) {
-            const empresa = (await fb.get(fb.ref(fb.db, `contas/${user.uid}/empresa`))).val();
-            contas.push({ id: user.uid, nome: empresa?.nome || 'Minha empresa', permissao: 'administrador', titular: true });
-        }
-    } catch (error) {
-        if (!/permission/i.test(error.code || error.message)) throw error;
+        if(contaId && !/^[a-zA-Z0-9_-]{1,128}$/.test(contaId)) throw Error('Conta inválida.');
+        const endpoint = (fb.contasApiUrl || '/api/contas').replace(/\/$/,'') + (contaId ? '/' + contaId : '');
+        const response = await fetch(endpoint, {
+            headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: AbortSignal.timeout(15000),
+        });
+        if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) throw Error('Serviço indisponível.');
+        const result = await response.json();
+        if (!Array.isArray(result.contas)) throw Error('Resposta inválida.');
+        return result.contas.filter((c) => /^[a-zA-Z0-9_-]{1,128}$/.test(c.id) &&
+            ['administrador', 'rh', 'visualizador'].includes(c.permissao)).map((c) => ({
+                id: c.id, nome: String(c.nome || 'Empresa'), permissao: c.permissao, titular: c.titular === true,
+                codigoApp: /^[1-9][0-9]{0,8}$/.test(c.codigoApp || '') ? c.codigoApp : '',
+            }));
+    } catch {
+        throw Object.assign(Error('Não foi possível consultar suas empresas. Confira se o serviço /api/contas está configurado e disponível. As permissões ficam dentro de cada conta.'), { code: 'contas/indisponivel' });
     }
-    if (user.emailVerified) {
-        let convites;
-        try { convites = (await fb.get(fb.ref(fb.db, `acessosContas/${chaveEmail(user.email)}`))).val() || {}; }
-        catch (error) {
-            if (contas.length && /permission/i.test(error.code || error.message)) return contas;
-            throw error;
-        }
-        for (const [id, convite] of Object.entries(convites)) {
-            if (convite.status === 'ativo' && !contas.some((c) => c.id === id))
-                contas.push({ id, nome: convite.nomeConta, permissao: convite.permissao, titular: false });
-        }
-    }
-    return contas;
 }
 
 export async function salvarUsuarioComAcesso(fb, owner, id, anterior, usuario, nomeConta) {
     if (!owner || !fb.auth.currentUser) throw Error('Entre na empresa antes de liberar acessos.');
-    const updates = { [`contas/${owner}/usuarios/${id}`]: usuario };
-    if (!usuario.titular) {
-        updates[`acessosContas/${chaveEmail(usuario.email)}/${owner}`] = {
-            usuarioId: id, email: usuario.email, nomeConta: nomeConta || 'Empresa',
-            permissao: usuario.permissao, status: usuario.status,
-        };
-        if (anterior?.email && chaveEmail(anterior.email) !== chaveEmail(usuario.email))
-            updates[`acessosContas/${chaveEmail(anterior.email)}/${owner}`] = null;
-    }
-    await fb.update(fb.ref(fb.db), updates);
+    if (anterior?.email && anterior.email !== usuario.email) throw Error('Revogue o e-mail antigo e conceda um novo acesso na Gestão de contas.');
+    const { gestaoApi } = await import('./gestao.js');
+    await gestaoApi('/' + owner, {tipo:'acesso',email:usuario.email,nome:usuario.nome,permissao:usuario.permissao,revogar:usuario.status==='bloqueado',requestId:crypto.randomUUID()});
 }

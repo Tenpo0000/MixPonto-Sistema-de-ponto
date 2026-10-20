@@ -7,46 +7,37 @@ const context = vm.createContext({});
 vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/core/contas.js'), 'utf8').replace(/export /g, '') +
     '\nthis.api={chaveEmail,contasDisponiveis,salvarUsuarioComAcesso};', context);
 const { chaveEmail, contasDisponiveis, salvarUsuarioComAcesso } = context.api;
-const denied = () => Object.assign(Error('permission denied'), { code: 'permission_denied' });
+const user = (uid='shared') => ({ uid, getIdToken: async () => 'firebase-id-token' });
+context.AbortSignal = { timeout: () => undefined };
 
-test('mesmo login descobre duas contas ativas e ignora a conta bloqueada', async () => {
-    const user = { uid: 'shared', email: 'Shared@example.com', emailVerified: true };
-    const fb = { db: {}, ref: (_, p) => p, get: async (p) => {
-        if (p.startsWith('contas/shared')) throw denied();
-        assert.equal(p, `acessosContas/${chaveEmail(user.email)}`);
-        return { val: () => ({ A: { nomeConta: 'A', status: 'ativo', permissao: 'rh' }, B: { nomeConta: 'B', status: 'ativo', permissao: 'administrador' }, C: { status: 'bloqueado' } }) };
-    } };
-    const contas = await contasDisponiveis(fb, user);
-    assert.equal(contas.map((item) => item.id).join(','), 'A,B');
+test('mesmo login usa descoberta autenticada sem consultar índice global no banco', async () => {
+    context.fetch = async (url, options) => {
+        assert.equal(url, '/api/contas');
+        assert.equal(options.headers.Authorization, 'Bearer firebase-id-token');
+        return { ok: true, headers: { get: () => 'application/json' }, json: async () => ({ contas: [
+            { id: 'A', nome: 'A', permissao: 'rh' }, { id: 'B', nome: 'B', permissao: 'administrador' },
+        ] }) };
+    };
+    const contas = await contasDisponiveis({ get: () => { throw Error('não deve consultar raiz'); } }, user());
+    assert.equal(contas.map(c => c.id).join(','), 'A,B');
 });
 
-test('e-mail não confirmado não consulta nem aceita convites de outras empresas', async () => {
-    const paths = [];
-    const fb = { db: {}, ref: (_, p) => p, get: async (p) => { paths.push(p); throw denied(); } };
-    const contas = await contasDisponiveis(fb, { uid: 'shared', email: 'shared@example.com', emailVerified: false });
-    assert.equal(contas.length, 0);
-    assert.ok(paths.every((p) => !p.startsWith('acessosContas/')));
+test('serviço indisponível informa configuração pendente sem fallback para dados globais', async () => {
+    context.fetch = async () => ({ ok: false });
+    await assert.rejects(contasDisponiveis({}, user('owner')), /serviço \/api\/contas/);
 });
 
-test('titular existente continua acessando a conta durante a atualização das regras', async () => {
-    const fb = { db: {}, ref: (_, p) => p, get: async (p) => {
-        if (p.endsWith('/meta')) return { val: () => ({ ownerUid: 'owner' }) };
-        if (p.endsWith('/empresa')) return { val: () => ({ nome: 'Empresa' }) };
-        throw denied();
-    } };
-    const contas = await contasDisponiveis(fb, { uid: 'owner', email: 'owner@example.com', emailVerified: true });
-    assert.equal(contas[0].id, 'owner');
-    assert.equal(contas[0].titular, true);
+test('descoberta usa endpoint configurado e descarta identificadores inválidos', async () => {
+    context.fetch = async url => {
+        assert.equal(url, 'https://api.example/api/contas');
+        return { ok: true, headers: { get: () => 'application/json' }, json: async () => ({ contas: [
+            { id: '../outra', permissao: 'administrador' }, { id: 'A', nome: 'A', permissao: 'visualizador' },
+        ] }) };
+    };
+    assert.equal((await contasDisponiveis({ contasApiUrl: 'https://api.example/api/contas' }, user())).length, 1);
 });
 
-test('troca de e-mail remove convite antigo no mesmo lote do perfil e do novo convite', async () => {
-    let changes;
-    const fb = { auth: { currentUser: { uid: 'owner' } }, db: {}, ref: (_, p) => p,
-        update: async (_, value) => { changes = value; } };
-    await salvarUsuarioComAcesso(fb, 'owner', 'perfil', { email: 'old@example.com' }, {
-        nome: 'Usuário', email: 'new@example.com', permissao: 'visualizador', status: 'bloqueado',
-    }, 'Empresa');
-    assert.equal(changes[`acessosContas/${chaveEmail('old@example.com')}/owner`], null);
-    assert.equal(changes[`acessosContas/${chaveEmail('new@example.com')}/owner`].status, 'bloqueado');
-    assert.equal(changes['contas/owner/usuarios/perfil'].email, 'new@example.com');
+test('troca de e-mail exige revogação explícita e não escreve permissões pelo cliente', async () => {
+    const fb = {auth:{currentUser:{uid:'owner'}}};
+    await assert.rejects(salvarUsuarioComAcesso(fb,'owner','p',{email:'old@example.com'},{email:'new@example.com'}), /Revogue/);
 });

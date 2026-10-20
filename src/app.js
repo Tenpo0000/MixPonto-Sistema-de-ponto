@@ -9,7 +9,7 @@ import * as movimentacoes from './pages/movimentacoes.js';
 import * as usuarios from './pages/usuarios.js';
 import * as gerenciamento from './pages/gerenciamento.js';
 import { perfilId, preencherHeader } from './core/preferencias.js';
-import { preencherEmpresaHeader } from './core/empresa-login.js';
+import { preencherContaHeader } from './core/conta-header.js';
 import * as empresa from './pages/empresa.js';
 import * as horario from './pages/horario.js';
 import * as funcionario from './pages/funcionario.js';
@@ -75,7 +75,7 @@ function aplicarBusca() {
 function render() {
     const pagina = PAGES[viewAtual];
     preencherHeader();
-    preencherEmpresaHeader();
+    preencherContaHeader();
     $('#view').innerHTML = pagina.view();
     pagina.bind?.({ render });
     const grupo = grupoDe(viewAtual) || viewAtual;
@@ -171,6 +171,7 @@ function iniciar() {
         'ajustes',
         'feriados',
         'config',
+        'meta',
         'empresa',
         'empresas',
         'horarios',

@@ -3,7 +3,7 @@ import { admissionMs, mergeRecords } from './batidas.mjs';
 
 export async function employeeForAccess(db, owner, fid) {
     const company = (await get(ref(db, `contas/${owner}`))).val();
-    if (company?.meta?.ownerUid !== owner) throw new Error('Entre com o login titular de uma empresa já cadastrada.');
+    if (!company?.meta?.ownerUid) throw new Error('Entre com o login titular de uma empresa já cadastrada.');
     const f = company.funcionarios?.[fid];
     if (!f || f.status !== 'ativo') throw new Error('Selecione um funcionário ativo já cadastrado.');
     const admission = admissionMs(f.admissao);

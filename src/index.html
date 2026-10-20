@@ -3,11 +3,18 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="mixponto-contas-api" content="" />
         <title>Sistema de Ponto</title>
         <link rel="stylesheet" href="style.css" />
     </head>
     <body>
-        <section id="auth-tela" class="auth-tela">
+        <section id="sessao-carregando" class="auth-tela" role="status" aria-live="polite">
+            <div class="auth-cartao">
+                <h1>Sistema de Ponto</h1>
+                <p id="sessao-carregando-texto">Restaurando sua sessão…</p>
+            </div>
+        </section>
+        <section id="auth-tela" class="auth-tela" hidden>
             <div class="auth-cartao">
                 <h1>Sistema de Ponto</h1>
                 <h2 id="auth-titulo">Entre na sua conta</h2>
@@ -143,8 +150,7 @@
                     <div class="info-usuario">
                         <span id="sessao-email" class="sessao-email"></span>
                         <select id="sessao-conta" aria-label="Empresa em uso"></select>
-                        <select id="sessao-empresa" aria-label="Empresa para login no aplicativo" hidden></select>
-                        <span class="sessao-empresa-id">ID da empresa para o app: <code id="sessao-id-empresa"></code></span>
+                        <span class="sessao-empresa-id">ID da conta para o app: <code id="sessao-id-conta"></code></span>
                         <button type="button" class="btn btn-secundario btn-sair" id="btn-sair">
                             Sair
                         </button>
@@ -165,6 +171,8 @@
                 await iniciar();
             } catch (error) {
                 console.error('Falha ao iniciar:', error);
+                document.getElementById('sessao-carregando').hidden = true;
+                document.getElementById('auth-tela').hidden = false;
                 const mensagem = document.getElementById('auth-mensagem');
                 mensagem.classList.add('auth-erro');
                 mensagem.textContent =

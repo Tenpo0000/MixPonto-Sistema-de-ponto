@@ -87,7 +87,7 @@ test('novoId/gravar e cadastro de empresa usam apenas a camada isolada', () => {
         e = fs.readFileSync(path.join(root, 'pages/empresa.js'), 'utf8');
     assert(h.includes('return db.novoId(path)'));
     assert(h.includes('return db.set(path, val)'));
-    assert(e.includes('await publicarIdEmpresa(window.fb, window.fb.contaAtiva.id'));
+    assert(e.includes("await db.set(editId === 'padrao' ? 'empresa'"));
     assert(!e.includes('fb.set('));
 });
 test('regras negam raiz e dependem de auth.uid, não de permissão editável', () => {
@@ -96,71 +96,16 @@ test('regras negam raiz e dependem de auth.uid, não de permissão editável', (
     ).rules;
     assert.equal(r['.read'], false);
     assert.equal(r['.write'], false);
-    for (const op of ['.read', '.write']) {
-        const [variavel, conta] = Object.entries(r.contas).find(([key]) => key.startsWith('$'));
-        const expr = conta[op];
-        const avaliar = (auth, uid, titular = true) => Function('auth', variavel, 'root', 'return ' + expr)(
-            auth && { ...auth, token: { email: null } }, uid, { child: () => ({ child: () => ({ val: () => titular }) }) }
-        );
-        assert.equal(avaliar(null, 'A'), false);
-        assert.equal(avaliar({ uid: 'A' }, 'A'), true);
-        assert.equal(avaliar({ uid: 'A' }, 'B'), false);
-        assert.equal(avaliar({ uid: 'A' }, 'A', false), false);
-    }
+    const conta = r.contas.$empresa;
+    assert.equal(conta['.write'], false);
+    assert.equal(conta.usuarios['.write'], false);
+    assert.equal(conta.auditoria['.write'], false);
+    assert.match(conta['.read'], /meta\/ownerUid/);
+
 });
-test('inicialização cria apenas o espaço da conta e não sobrescreve dados existentes', async () => {
-    const dados = {},
-        calls = [];
-    const fb = {
-        ref: (db, p) => p,
-        db: {},
-        get: async (p) => ({
-            val: () => dados[p.split('/')[1]]?.meta ?? null,
-            exists: () => {
-                const uid = p.split('/')[1];
-                return !!dados[uid]?.meta;
-            }
-        }),
-        runTransaction: async (p, fn) => {
-            calls.push(p);
-            const [, uid, ...partes] = p.split('/');
-            const next = fn(partes.reduce((v, k) => v?.[k], dados[uid]) ?? null);
-            if (next === undefined) return;
-            if (!partes.length) dados[uid] = next;
-            else {
-                let alvo = dados[uid] ||= {};
-                for (const k of partes.slice(0, -1)) alvo = alvo[k] ||= {};
-                alvo[partes.at(-1)] = next;
-            }
-        }
-    };
-    const context = vm.createContext({ window: { fb }, document: {}, console });
-    let src = fs
-        .readFileSync(path.join(root, 'bootstrap.js'), 'utf8')
-        .replace(/^import\s+(?:[\s\S]*?from\s+)?['"][^'"]+['"];?/gm, '')
-        .replace(/export async function/g, 'async function');
-    vm.runInContext(src + '\nthis.seed=prepararConta;', context);
-    await context.seed({ uid: 'A', email: 'a@example.com', displayName: 'A' });
-    await context.seed({ uid: 'B', email: 'b@example.com', displayName: 'B' });
-    assert.equal(dados.A.meta.ownerUid, 'A');
-    assert.equal(dados.B.meta.ownerUid, 'B');
-    assert.equal(dados.A.preferencias.A.perfil.email, 'a@example.com');
-    assert(!dados.A.preferencias.B);
-    dados.A.funcionarios = { f: { nome: 'Preservar' } };
-    await context.seed({ uid: 'A', email: 'a@example.com' });
-    assert.equal(dados.A.funcionarios.f.nome, 'Preservar');
-    assert.deepEqual(calls, ['contas/A', 'contas/A/meta/ownerUid', 'contas/B', 'contas/B/meta/ownerUid']);
-    dados.C = { funcionarios: { f: { nome: 'Legado' } }, meta: { criadoEm: 'antigo' } };
-    await context.seed({ uid: 'C' });
-    assert.equal(dados.C.meta.ownerUid, 'C');
-    assert.equal(dados.C.meta.criadoEm, 'antigo');
-    assert.equal(dados.C.funcionarios.f.nome, 'Legado');
-    dados.D = { funcionarios: { f: { nome: 'Sem meta' } } };
-    await context.seed({ uid: 'D' });
-    assert.equal(dados.D.meta.ownerUid, 'D');
-    assert.equal(dados.D.funcionarios.f.nome, 'Sem meta');
-    assert.equal(dados.D.config, undefined);
-    dados.E = { meta: { ownerUid: 'outro' } };
-    await assert.rejects(context.seed({ uid: 'E' }), /titular registrado/);
-    assert.equal(dados.E.meta.ownerUid, 'outro');
+test('login descobre contas sem criar espaco pelo UID no cliente', () => {
+    const source=fs.readFileSync(path.join(root,'bootstrap.js'),'utf8');
+    assert.equal(source.includes('prepararConta'),false);
+    assert.equal(source.includes('fb.runTransaction'),false);
+    assert.ok(source.includes("gestaoApi('/aceitar',{})"));
 });

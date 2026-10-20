@@ -89,13 +89,6 @@ function ambiente(pagina, seed = {}) {
                   ) || null,
         $$: (s) => (s.startsWith('[data-') ? nodes.filter((n) => s.slice(1, -1) in n.attrs) : [])
     });
-    c.window.fb = { db: {}, contaAtiva: { id: 'owner' }, ref: (_, p) => p,
-        get: async p => ({ val: () => p === 'sequenciaEmpresas' ? (state.sequenciaEmpresas ?? null) :
-            p.split('/').slice(2).reduce((v, k) => v?.[k], state) ?? null }),
-        update: async (_, changes) => {
-            for (const [p, v] of Object.entries(changes)) await set(p.startsWith('contas/owner/') ? p.slice('contas/owner/'.length) : p, v);
-        } };
-    carregar(c, 'core/empresa-id.js');
     carregar(c, 'core/jornada.js');
     carregar(c, 'core/empresas.js');
     carregar(c, 'core/feriados-nacionais.js');
@@ -166,8 +159,8 @@ test('empresas preserva cadastro antigo, abre lista, cria empresa e retorna à l
         a.get('#emp-form').events.input({ target: { name, value, removeAttribute() {} } });
     await a.get('#emp-form').events.submit({ preventDefault() {} });
     assert.equal(a.state.empresas['-novo'].nome, 'Unidade nova');
-    assert.equal(a.state.empresas['-novo'].codigoApp, '1');
-    assert.equal(a.state.sequenciaEmpresas, 1);
+    assert.equal(a.state.empresas['-novo'].codigoApp, undefined);
+    assert.equal(a.state.sequenciaContas, undefined);
     assert.equal(a.state.empresa.nome, 'Legada');
     assert(!a.get('#emp-form'));
     assert.match(a.html(), /Unidade nova/);
@@ -178,16 +171,17 @@ test('empresas preserva cadastro antigo, abre lista, cria empresa e retorna à l
     assert(!a.get('#emp-form'));
 });
 
-test('empresa mantém ID numérico ao editar sem oferecer campo para digitá-lo', async () => {
-    const a = ambiente('empresa', { empresas: { e: { nome: 'Empresa', codigoApp: '7', documento: '22222222222', cep: '44000000', logradouro: 'Rua', numero: '1', bairro: 'Centro', cidade: 'Feira', uf: 'BA', responsavel: 'Ana', cargo: 'Gestora', email: 'ana@example.com' } } });
+test('editar empresa não altera ID da conta ou contador', async () => {
+    const a = ambiente('empresa', { meta: { codigoApp: '1' }, sequenciaContas: 1, empresas: { e: { nome: 'Empresa', documento: '22222222222', cep: '44000000', logradouro: 'Rua', numero: '1', bairro: 'Centro', cidade: 'Feira', uf: 'BA', responsavel: 'Ana', cargo: 'Gestora', email: 'ana@example.com' } } });
     await a.all('[data-emp-editar]')[0].events.click({});
-    assert.match(a.html(), /ID da empresa para o app: <strong>7<\/strong>/);
+    assert(!a.html().includes('ID da empresa para o app'));
     assert(!a.get('#emp-codigoApp'));
     a.get('#emp-form').events.input({ target: { name: 'nome', value: 'Empresa alterada', removeAttribute() {} } });
     await a.get('#emp-form').events.submit({ preventDefault() {} });
-    assert.equal(a.state.empresas.e.codigoApp, '7');
+    assert.equal(a.state.empresas.e.codigoApp, undefined);
+    assert.equal(a.state.meta.codigoApp, '1');
     assert.equal(a.state.empresas.e.nome, 'Empresa alterada');
-    assert.equal(a.state.sequenciaEmpresas, undefined);
+    assert.equal(a.state.sequenciaContas, 1);
 });
 test('empresa vinculada não pode ser excluída', async () => {
     const a = ambiente('empresa', {

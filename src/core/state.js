@@ -12,6 +12,7 @@ export const state = {
     ajustes: {},
     feriados: {},
     config: {},
+    meta: {},
     empresa: {},
     empresas: {},
     cargos: {},

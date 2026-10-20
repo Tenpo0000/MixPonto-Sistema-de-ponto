@@ -1,0 +1,8 @@
+{
+  "name": "mixponto-descoberta-contas",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node --env-file-if-exists=.env server.mjs", "test": "node --test test/*.test.mjs" },
+  "dependencies": { "firebase-admin": "13.6.0" }
+}

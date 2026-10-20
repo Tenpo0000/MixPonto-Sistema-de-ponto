@@ -9,11 +9,10 @@ export function push(parent) { const result = sdkPush(parent); databases.set(res
 function tenant(reference, changes) {
     const path = new URL(reference.toString()).pathname.split('/').filter(Boolean).map(decodeURIComponent);
     if (path[0] === 'contas') return path[1];
-    if (path[0] === 'acessosContas' && path[2]) return path[2];
-    if (path[0] === 'empresasPorId' && changes?.contaId) return changes.contaId;
+    if (path[0] === 'contasPorId' && changes?.contaId) return changes.contaId;
     const ids = new Set(Object.keys(changes || {}).map((p) => p.split('/'))
-        .map((p) => p[0] === 'contas' ? p[1] : p[0] === 'acessosContas' ? p[2] :
-            p[0] === 'empresasPorId' ? changes[p.join('/')]?.contaId : null).filter(Boolean));
+        .map((p) => p[0] === 'contas' ? p[1] :
+            p[0] === 'contasPorId' ? changes[p.join('/')]?.contaId : null).filter(Boolean));
     if (ids.size > 1) throw Error('Uma requisição não pode alterar duas empresas.');
     return [...ids][0] || null;
 }
@@ -45,8 +44,7 @@ async function request(reference, method = 'GET', value, extra = {}, signal) {
     const timer = deadline ? setTimeout(() => deadline.abort(), 20000) : null;
     try { return await fetch(url, {
         method, cache: 'no-store', signal: signal || deadline.signal,
-        headers: { ...(id ? { 'X-Conta-ID': id } : {}),
-            ...(globalThis.window?.fb?.empresaAtiva?.codigo ? { 'X-Empresa-ID': window.fb.empresaAtiva.codigo } : {}),
+        headers: { ...(id ? { 'X-Conta-ID': globalThis.window?.fb?.contaAtiva?.id === id && window.fb.contaAtiva.codigoApp || id } : {}),
             ...(value !== undefined ? { 'Content-Type': 'application/json' } : {}), ...extra },
         ...(value !== undefined ? { body: JSON.stringify(value) } : {}),
     }); } finally { if (timer) clearTimeout(timer); }

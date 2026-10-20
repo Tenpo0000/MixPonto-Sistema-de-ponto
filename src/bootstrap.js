@@ -1,5 +1,7 @@
 import './fireBase_config.js';
 import { contasDisponiveis } from './core/contas.js';
+import { gestaoApi, abrirGestao } from './core/gestao.js';
+import { atualizarSeletorContas } from './core/conta-seletor.js';
 
 const fb = window.fb;
 const $ = (s) => document.querySelector(s);
@@ -10,6 +12,29 @@ let modo = 'entrar',
     importTentado = false;
 let abrindo = false;
 
+function destinoTroca(user, preferida) {
+    let troca;
+    try {troca=JSON.parse(sessionStorage.getItem('mixponto-troca') || 'null');sessionStorage.removeItem('mixponto-troca');} catch {return null;}
+    return troca?.uid===user.uid && troca.conta===preferida && Date.now()-troca.em>=0 && Date.now()-troca.em<60000 ? troca.conta : null;
+}
+
+function carregando(texto) {
+    $('#sessao-carregando-texto').textContent = texto;
+    $('#sessao-carregando').hidden = false;
+    $('#auth-tela').hidden = true;
+    $('#app-shell').hidden = true;
+}
+
+function escolherConta() {
+    $('#auth-titulo').textContent = 'Suas contas';
+    $('.auth-descricao').textContent = 'Você continua conectado. Escolha a conta que deseja acessar.';
+    $('#auth-form').hidden = true;
+    $('#auth-alternar').hidden = true;
+    $('#auth-recuperar').hidden = true;
+    $('#auth-compartilhado').hidden = false;
+    $('#auth-tela').hidden = false;
+}
+
 function mensagem(texto, erro = false) {
     const el = $('#auth-mensagem');
     el.textContent = texto;
@@ -17,6 +42,7 @@ function mensagem(texto, erro = false) {
 }
 
 function traduzir(e) {
+    if (e.code === 'contas/indisponivel') return e.message;
     return (
         {
             'auth/invalid-credential': 'E-mail ou senha incorretos.',
@@ -62,81 +88,21 @@ function bloquear(v) {
     $('#auth-recuperar').disabled = v;
 }
 
-async function prepararConta(user) {
-    const base = `contas/${user.uid}`,
-        meta = await fb.get(fb.ref(fb.db, `${base}/meta`));
-    const owner = meta.val()?.ownerUid;
-    if (owner === user.uid) return;
-    if (owner) throw Error('O titular registrado nesta conta não corresponde ao login atual. Confira meta/ownerUid no Console.');
-    if (meta.exists()) {
-        await completarTitular(user, base);
-        return;
-    }
-    const perfil = {
-        nome: user.displayName || nomeResponsavel || 'Minha Conta',
-        email: user.email || '',
-        cargo: 'Administrador',
-        departamento: '',
-        foto: ''
-    };
-    const agora = new Date().toISOString();
-    const inicial = {
-        meta: { ownerUid: user.uid, criadoEm: agora },
-        config: { jornada: 8, tolerancia: 10, diasTrabalho: '12345' },
-        preferencias: {
-            [user.uid]: {
-                perfil,
-                alertas: { atrasos: true, ausencias: true, extras: false },
-                atualizadoEm: agora
-            }
-        },
-        usuarios: {
-            [user.uid]: {
-                nome: perfil.nome,
-                email: perfil.email,
-                permissao: 'administrador',
-                status: 'ativo',
-                titular: true,
-                criadoEm: agora
-            }
-        }
-    };
-    // A transação só inicializa uma conta inexistente; não substitui dados já salvos.
-    await fb.runTransaction(
-        fb.ref(fb.db, base),
-        (atual) => (atual === null ? inicial : undefined),
-        { applyLocally: false }
-    );
-    // Contas antigas podem já ter funcionários, mas ainda não ter metadados.
-    await completarTitular(user, base);
-}
-
-async function completarTitular(user, base) {
-    await fb.runTransaction(fb.ref(fb.db, `${base}/meta/ownerUid`), (atual) => {
-        if (atual && atual !== user.uid) throw Error('Titular divergente. Confira meta/ownerUid no Console.');
-        return atual === null ? user.uid : undefined;
-    }, { applyLocally: false });
-}
-
-async function abrir(user) {
+async function abrir(user, discreto = false) {
     if (appUid || abrindo) return;
     abrindo = true;
     bloquear(true);
+    if (!discreto) carregando('Carregando sua conta…');
     mensagem('Carregando sua empresa…');
     try {
-        try { await prepararConta(user); }
-        catch (error) {
-            // Um convidado não precisa ter uma empresa própria.
-            if (!/permission/i.test(error.code || error.message)) throw error;
-        }
-        const contas = await contasDisponiveis(fb, user);
         const chave = `mixponto-conta-${user.uid}`;
-        const escolhida = contas.find((c) => c.id === sessionStorage.getItem(chave)) || (contas.length === 1 ? contas[0] : null);
+        const destino=destinoTroca(user,localStorage.getItem(chave));
+        if(!destino && user.emailVerified) await gestaoApi('/aceitar',{});
+        const contas = await contasDisponiveis(fb, user, destino);
+        if(destino && !contas.some(c=>c.id===destino)) throw Object.assign(Error('Acesso revogado.'),{code:'permission_denied'});
+        const escolhida = contas.find((c) => c.id === localStorage.getItem(chave)) || (contas.length === 1 ? contas[0] : null);
         if (!escolhida) {
-            $('#auth-form').hidden = true;
-            $('#auth-alternar').hidden = true;
-            $('#auth-recuperar').hidden = true;
-            $('#auth-compartilhado').hidden = false;
+            escolherConta();
             $('#auth-verificar-email').hidden = user.emailVerified;
             const lista = $('#auth-contas-lista');
             lista.replaceChildren();
@@ -144,8 +110,8 @@ async function abrir(user) {
                 const botao = document.createElement('button');
                 botao.type = 'button';
                 botao.className = 'btn btn-primario';
-                botao.textContent = `${conta.nome} · ${conta.id}`;
-                botao.onclick = () => { sessionStorage.setItem(chave, conta.id); abrir(user); };
+                botao.textContent = conta.nome;
+                botao.onclick = () => { localStorage.setItem(chave, conta.id); abrir(user); };
                 lista.appendChild(botao);
             });
             mensagem(contas.length ? 'Escolha a empresa que deseja acessar.' : !user.emailVerified
@@ -154,15 +120,21 @@ async function abrir(user) {
             return;
         }
         fb.contaAtiva = escolhida;
-        await fb.get(fb.ref(fb.db, `contas/${escolhida.id}/meta`));
-        sessionStorage.setItem(chave, escolhida.id);
+        fb.contasDisponiveis = contas;
+        // O endpoint já verificou metadados e permissões; os dados operacionais
+        // são novamente autorizados pelas regras do Firebase ao serem carregados.
+        localStorage.setItem(chave, escolhida.id);
         const seletor = $('#sessao-conta');
         seletor.replaceChildren();
-        contas.forEach((conta) => seletor.add(new Option(conta.nome, conta.id)));
+        contas.forEach((conta) => seletor.add(new Option(`${conta.nome} · ID ${conta.codigoApp || 'pendente'}`, conta.id)));
         seletor.value = escolhida.id;
+        atualizarSeletorContas(seletor,contas,escolhida);
         seletor.hidden = contas.length < 2;
         seletor.onchange = () => {
-            sessionStorage.setItem(chave, seletor.value);
+            if (seletor.value === escolhida.id) return;
+            carregando('Trocando de conta…');
+            localStorage.setItem(chave, seletor.value);
+            sessionStorage.setItem('mixponto-troca',JSON.stringify({uid:user.uid,conta:seletor.value,em:Date.now()}));
             window.dispatchEvent(new Event('mixponto:encerrar'));
             location.reload();
         };
@@ -179,6 +151,15 @@ async function abrir(user) {
         $('#auth-tela').hidden = true;
         $('#app-shell').hidden = false;
         $('#sessao-email').textContent = user.email || '';
+        if(destino) contasDisponiveis(fb,user).then(novas=>{
+            if(fb.auth.currentUser?.uid!==user.uid || fb.contaAtiva?.id!==escolhida.id) return;
+            const atual=novas.find(c=>c.id===escolhida.id);
+            if(!atual || atual.permissao!==escolhida.permissao) return window.dispatchEvent(new Event('mixponto:acesso-revogado'));
+            contas.splice(0,contas.length,...novas);
+            seletor.replaceChildren(...contas.map(c=>new Option(`${c.nome} · ID ${c.codigoApp || 'pendente'}`,c.id)));
+            seletor.value=escolhida.id;
+            atualizarSeletorContas(seletor,contas,atual);
+        }).catch(()=>{});
         $('#btn-sair').addEventListener('click', async () => {
             try {
                 await fb.signOut(fb.auth);
@@ -193,26 +174,67 @@ async function abrir(user) {
             ? 'O acesso a esta empresa não está disponível. Peça ao administrador para conferir seu perfil em Configurações → Usuários. Se o sistema acabou de ser atualizado, confira a publicação das regras de acesso compartilhado.'
             : traduzir(e), true);
         $('#auth-senha').value = '';
+        // Uma falha no acesso à conta não invalida a identidade autenticada.
+        if (fb.auth.currentUser?.uid === user.uid) {
+            escolherConta();
+            $('#auth-verificar-email').hidden = user.emailVerified;
+            if (semPermissao) localStorage.removeItem(`mixponto-conta-${user.uid}`);
+        } else {
+            $('#auth-tela').hidden = false;
+        }
         if (importTentado) {
             $('#auth-form').hidden = true;
             $('#auth-alternar').hidden = true;
             $('#auth-recuperar').hidden = true;
             $('#auth-recarregar').hidden = false;
         }
-        try {
-            await fb.signOut(fb.auth);
-        } catch {}
     } finally {
+        $('#sessao-carregando').hidden = true;
         abrindo = false;
         bloquear(false);
     }
 }
 
 export async function iniciar() {
+    window.addEventListener('mixponto:gestao-atualizada', async () => {
+        const user=fb.auth.currentUser;
+        if(!user) return;
+        if(!appUid) return abrir(user,true);
+        try {
+            const contas=await contasDisponiveis(fb,user);
+            if(fb.auth.currentUser?.uid!==user.uid) return;
+            const ativa=contas.find(c=>c.id===fb.contaAtiva?.id);
+            if(!ativa || ativa.permissao!==fb.contaAtiva.permissao) {
+                window.dispatchEvent(new Event('mixponto:acesso-revogado'));
+                return;
+            }
+            fb.contasDisponiveis.splice(0,fb.contasDisponiveis.length,...contas);
+            const seletor=$('#sessao-conta');
+            seletor.replaceChildren(...contas.map(c=>new Option(`${c.nome} · ID ${c.codigoApp || 'pendente'}`,c.id)));
+            seletor.value=ativa.id;
+            seletor.hidden=contas.length<2;
+            atualizarSeletorContas(seletor,fb.contasDisponiveis,ativa);
+        } catch { mensagem('Não foi possível atualizar a lista de contas. Tente verificar seus acessos novamente.',true); }
+    });
+    for(const parent of [document.querySelector('#auth-compartilhado'), document.querySelector('#sessao-conta')?.parentElement]) {
+        if(!parent) continue;
+        const button=document.createElement('button');button.type='button';button.className='btn btn-gestao';button.textContent='Gestão de contas';button.onclick=abrirGestao;parent.appendChild(button);
+    }
+    let verificando=false;
+    setInterval(async()=>{
+        if(!appUid || verificando) return;
+        verificando=true;
+        try {
+            const contas=await contasDisponiveis(fb,fb.auth.currentUser);
+            const ativa=contas.find(c=>c.id===fb.contaAtiva?.id);
+            if(!ativa || ativa.permissao!==fb.contaAtiva.permissao) window.dispatchEvent(new Event('mixponto:acesso-revogado'));
+        } catch {} finally {verificando=false;}
+    },15000);
+
     window.addEventListener('mixponto:acesso-revogado', () => {
         $('#app-shell').hidden = true;
         $('#view').replaceChildren();
-        sessionStorage.removeItem(`mixponto-conta-${fb.auth.currentUser?.uid}`);
+        localStorage.removeItem(`mixponto-conta-${fb.auth.currentUser?.uid}`);
         window.dispatchEvent(new Event('mixponto:encerrar'));
         location.reload();
     }, { once: true });
@@ -305,8 +327,13 @@ export async function iniciar() {
         if (ocupado) return;
         if (user) abrir(user);
         else {
+            $('#sessao-carregando').hidden = true;
             $('#auth-tela').hidden = false;
             $('#app-shell').hidden = true;
+            $('#auth-compartilhado').hidden = true;
+            $('#auth-form').hidden = false;
+            $('#auth-alternar').hidden = false;
+            $('#auth-recuperar').hidden = false;
             $('#auth-senha').value = '';
             mensagem('');
         }
