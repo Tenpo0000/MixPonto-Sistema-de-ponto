@@ -19,7 +19,7 @@ function ambiente() {
         return nodes.get(id);
     };
     const context = vm.createContext({
-        state, console, Date, Object, Array, Number, String,
+        state, console, Date, Object, Array, Number, String, fotoLocal: v=> typeof v==='string' && v.startsWith('data:image/') ? v : '',
         location: { hash: '#funcionario' },
         window: { fb: { auth: { currentUser: { uid: 'owner' } }, db: {} } },
         $: node, $$: () => [],
@@ -72,10 +72,10 @@ test('campos de acesso ficam no cadastro e senhas não entram no FormData do fun
         assert.ok(!/\sname=/.test(input));
     }
     a.novoFuncionario();
-    assert.match(a.view(), /Os dados de acesso são salvos ao clicar em Salvar Funcionário/);
+    assert.match(a.view(), /O vínculo é salvo ao clicar em Salvar Funcionário/);
     assert.ok(!a.view().match(/<input[^>]*id="func-mobile-email"[^>]*disabled/));
 });
-test('Salvar Funcionário mantém email e senha legível ao reabrir sem expor no HTML gerado', async () => {
+test('Salvar Funcionário mantém e-mail sem reter ou restaurar senha', async () => {
     const a = ambiente();
     a.node('#func-mobile-email').value = 'ana@example.com';
     a.node('#func-mobile-senha').value = 'Test-only-123!';
@@ -88,15 +88,15 @@ test('Salvar Funcionário mantém email e senha legível ao reabrir sem expor no
     assert.ok(!a.view().includes('Test-only-123!'));
     assert.equal(a.state.funcionarios.f1.emailApp, 'ana@example.com');
     assert.equal(a.state.funcionarios.f1.appAuthUid, 'worker');
-    assert.match(a.view(), /O e-mail e a senha ficam visíveis/);
-    assert.match(a.view(), /id="func-mobile-senha" type="text"/);
+    assert.match(a.view(), /Senhas não podem ser recuperadas/);
+    assert.match(a.view(), /id="func-mobile-senha" type="password"/);
     a.editarFuncionario('f1');
     a.bind({ render() {} });
     assert.equal(a.node('#func-mobile-email').value, 'ana@example.com');
-    assert.equal(a.node('#func-mobile-senha').value, 'Test-only-123!');
-    assert.equal(a.node('#func-mobile-confirmar').value, 'Test-only-123!');
+    assert.equal(a.node('#func-mobile-senha').value, '');
+    assert.equal(a.node('#func-mobile-confirmar').value, '');
     await a.salvar();
-    assert.equal(a.creates.length, 2, 'salvar dados inalterados também confirma o vínculo no servidor');
+    assert.equal(a.creates.length, 1, 'salvar sem senha não deve reautenticar nem recriar o vínculo');
 });
 test('confirmação divergente não cria login e não grava funcionário', async () => {
     const a = ambiente();
@@ -130,7 +130,7 @@ test('salvar sem nova senha preserva o acesso e não tenta criar outro login', a
     assert.equal(a.creates.length, 0);
     assert.equal(a.writes[0].value.emailApp, 'ana@example.com');
     assert.equal(a.writes[0].value.appAuthUid, 'worker');
-    assert.match(a.view(), /e-mail e a senha cadastrados foram mantidos/);
+    assert.match(a.view(), /vínculo de acesso foi mantido sem guardar a senha/);
 });
 
 test('alterar cadastro não reativa acesso revogado; botão específico libera novamente', async () => {
@@ -143,23 +143,24 @@ test('alterar cadastro não reativa acesso revogado; botão específico libera n
     await a.salvar();
     assert.equal(a.creates.length, 0);
     assert.match(a.view(), /Salvar e liberar acesso novamente/);
+    a.node('#func-mobile-senha').value = a.node('#func-mobile-confirmar').value = 'Current-123!';
     await a.node('#func-form').events.submit({ preventDefault() {}, submitter: { id: 'func-mobile-liberar' } });
     assert.equal(a.creates.length, 1);
 });
 
-test('recarregar o cadastro restaura a cópia persistida sem precisar da senha em memória', () => {
+test('cópia legada nunca preenche senha ao reabrir o cadastro', () => {
     const a = ambiente();
     Object.assign(a.state.funcionarios.f1, { emailApp: 'ana@example.com', appAuthUid: 'worker' });
     a.state.credenciaisApp.f1 = { email: 'ana@example.com', authUid: 'worker', senha: 'Persisted-123!' };
     a.editarFuncionario('f1');
     a.bind({ render() {} });
-    assert.equal(a.node('#func-mobile-senha').value, 'Persisted-123!');
+    assert.equal(a.node('#func-mobile-senha').value, '');
     a.novoFuncionario();
     a.bind({ render() {} });
     assert.equal(a.node('#func-mobile-senha').value, '');
     a.editarFuncionario('f1');
     a.bind({ render() {} });
-    assert.equal(a.node('#func-mobile-senha').value, 'Persisted-123!');
+    assert.equal(a.node('#func-mobile-senha').value, '');
 });
 
 test('cópia antiga de outro login não é exibida e senha antiga precisa ser informada uma vez', async () => {
@@ -169,13 +170,13 @@ test('cópia antiga de outro login não é exibida e senha antiga precisa ser in
     a.editarFuncionario('f1');
     a.bind({ render() {} });
     assert.equal(a.node('#func-mobile-senha').value, '');
-    assert.match(a.view(), /Informe a senha atual e salve uma vez/);
+    assert.match(a.view(), /Senhas não podem ser recuperadas/);
     a.node('#func-mobile-senha').value = a.node('#func-mobile-confirmar').value = 'Current-123!';
     await a.salvar();
     assert.equal(a.creates.length, 1);
     a.editarFuncionario('f1');
     a.bind({ render() {} });
-    assert.equal(a.node('#func-mobile-senha').value, 'Current-123!');
+    assert.equal(a.node('#func-mobile-senha').value, '');
 });
 test('falha no acesso mantém formulário e permite repetir o mesmo funcionário sem duplicação', async () => {
     const a = ambiente();

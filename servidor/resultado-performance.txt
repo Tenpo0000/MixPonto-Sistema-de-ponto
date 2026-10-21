@@ -1,0 +1,28 @@
+
+> test
+> node --test test/*.test.mjs
+
+✔ mesmo login descobre empresas em outro dispositivo sem índice global nem dados privados (16.2453ms)
+✔ e-mail sem confirmação, perfil divergente e titular desativado não geram acesso (0.7427ms)
+✔ descoberta expõe um código por conta sem depender de quantas empresas ela contém (0.5898ms)
+✔ troca consulta somente o destino, verifica permissão atual e não enumera outras contas (0.5264ms)
+✔ servidor bloqueia autenticação de emulador em configuração de produção (396.4563ms)
+✔ API exige token, rejeita origem e UID informados pelo cliente e não publica arquivos privados (68.0852ms)
+✔ API de gestão rejeita token, origem, e-mail não verificado e JSON inválidos (60.6365ms)
+✔ mesmo revendedor cria contas isoladas com IDs 1 e 2; retry não duplica (3.1141ms)
+✔ cliente comum, e-mail não confirmado e contador inconsistente não criam contas (0.5674ms)
+✔ administrador padrão único recebe vínculo e identidade existente sem senha (0.4194ms)
+✔ revendedor não gerencia clientes de outro revendedor; papel não vem do corpo da ação (0.6713ms)
+✔ concessão existente exige identidade verificada e mantém uma pessoa por e-mail (0.6576ms)
+✔ convite só é aceito pelo e-mail verificado correto, uma vez e antes do vencimento (0.4959ms)
+✔ revogação bloqueia somente o vínculo da conta e cancela convites (1.6025ms)
+✔ protege administrador central, rejeita papel global e gera auditoria sem credenciais (0.5236ms)
+✔ somente administrador geral transfere responsabilidade comercial (0.4633ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 662.0704

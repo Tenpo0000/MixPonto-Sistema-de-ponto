@@ -41,3 +41,13 @@ test('troca de e-mail exige revogação explícita e não escreve permissões pe
     const fb = {auth:{currentUser:{uid:'owner'}}};
     await assert.rejects(salvarUsuarioComAcesso(fb,'owner','p',{email:'old@example.com'},{email:'new@example.com'}), /Revogue/);
 });
+
+test('troca usa endpoint do destino com token sem reaproveitar autorização anterior',async()=>{
+    context.fetch=async(url,options)=>{
+        assert.equal(url,'/api/contas/B');assert.equal(options.cache,'no-store');
+        assert.equal(options.headers.Authorization,'Bearer firebase-id-token');
+        return {ok:true,headers:{get:()=> 'application/json'},json:async()=>({contas:[{id:'B',nome:'B',permissao:'visualizador'}]})};
+    };
+    assert.equal((await contasDisponiveis({},user(),'B'))[0].permissao,'visualizador');
+    await assert.rejects(contasDisponiveis({},user(),'../A'));
+});

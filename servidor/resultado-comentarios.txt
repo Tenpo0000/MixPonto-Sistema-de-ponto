@@ -1,0 +1,32 @@
+
+> test
+> node --test test/*.test.mjs
+
+✔ mesmo login descobre empresas em outro dispositivo sem índice global nem dados privados (32.9692ms)
+✔ e-mail sem confirmação, perfil divergente e titular desativado não geram acesso (1.0044ms)
+✔ descoberta expõe um código por conta sem depender de quantas empresas ela contém (0.7206ms)
+✔ troca consulta somente o destino, verifica permissão atual e não enumera outras contas (1.1672ms)
+✔ servidor bloqueia autenticação de emulador em configuração de produção (427.8708ms)
+✔ API exige token, rejeita origem e UID informados pelo cliente e não publica arquivos privados (77.8261ms)
+✔ API de gestão rejeita token, origem, e-mail não verificado e JSON inválidos (93.9888ms)
+✔ documentos públicos usam cabeçalhos de privacidade e não expõem arquivos do servidor (30.2132ms)
+✔ mesmo revendedor cria contas isoladas com IDs 1 e 2; retry não duplica (4.822ms)
+✔ cliente comum, e-mail não confirmado e contador inconsistente não criam contas (0.9593ms)
+✔ administrador padrão único recebe vínculo e identidade existente sem senha (0.6109ms)
+✔ revendedor não gerencia clientes de outro revendedor; papel não vem do corpo da ação (1.1069ms)
+✔ concessão existente exige identidade verificada e mantém uma pessoa por e-mail (1.0121ms)
+✔ convite só é aceito pelo e-mail verificado correto, uma vez e antes do vencimento (0.8243ms)
+✔ revogação bloqueia somente o vínculo da conta e cancela convites (2.6807ms)
+✔ protege administrador central, rejeita papel global e gera auditoria sem credenciais (0.6458ms)
+✔ somente administrador geral transfere responsabilidade comercial (0.7248ms)
+✔ inventário remove somente campos de senha conhecidos e não inclui seus valores (4.2149ms)
+✔ limpeza inventaria após bloquear clientes e verifica novamente todas as contas (2.5325ms)
+✔ bloqueio recusado não lê nem remove dados; cópias restantes impedem sucesso (1.6882ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 789.2594

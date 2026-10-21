@@ -26,12 +26,19 @@ export function criarGestao(database,auth,config,store) {
         },
         async list(user) {
             const contas=[];
-            for(const id of await keys()) {
-                const meta=await store.get(`contas/${id}/meta`);
-                const grants=await store.get(`contas/${id}/acessosContas`);
-                const users=await store.get(`contas/${id}/usuarios`);
+            const ids=await keys();
+            async function inspect(id) {
+                const [meta,grants,users]=await Promise.all([
+                    store.get(`contas/${id}/meta`),
+                    store.get(`contas/${id}/acessosContas`),
+                    store.get(`contas/${id}/usuarios`),
+                ]);
                 const c={meta,acessosContas:grants,usuarios:users};
-                if(podeAdministrar(c,user,config)) { c.convites=await store.get(`contas/${id}/convites`); contas.push(resumir(c,id)); }
+                if(podeAdministrar(c,user,config)) { c.convites=await store.get(`contas/${id}/convites`); return resumir(c,id); }
+            }
+            for(let offset=0;offset<ids.length;offset+=8) {
+                const result=await Promise.all(ids.slice(offset,offset+8).map(inspect));
+                contas.push(...result.filter(Boolean));
             }
             const platform=plataforma(user,config), revendedores=[];
             if(platform.geral) {
@@ -61,6 +68,9 @@ export function criarGestao(database,auth,config,store) {
         async create(user,a) {
             const central=await lookup(config.adminEmail);
             let id;
+            // Contador, diretório público e conta precisam nascer juntos para
+            // não entregar o mesmo número a duas criações concorrentes.
+            // Ao crescer, substituir a transação global preservando essa garantia.
             await database.ref().transaction(root=>{const value=criarConta(root || {},user,a,config,central);id=value.contaId;return value.root;});
             return {conta:resumir((await database.ref(`contas/${id}`).get()).val(),id)};
         },

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Solicitações de privacidade · MixPonto</title>
+    <link rel="stylesheet" href="legal/legal.css">
+</head>
+<body>
+    <a class="pular-conteudo" href="#conteudo">Ir para o conteúdo</a>
+    <header><a href="index.html">← Sistema de ponto</a><h1>Solicitações de privacidade</h1><a href="politicas.html#direitos">Como seus direitos são tratados</a></header>
+    <main id="conteudo" tabindex="-1">
+        <p class="aviso">O responsável pela plataforma ainda não foi identificado. Para dados de trabalho, procure também a empresa empregadora. Não envie documentos, senhas ou dados de saúde neste formulário.</p>
+        <p id="sessao" role="status">Verificando a sessão…</p>
+        <form id="pedido">
+            <label>ID da conta<input name="conta" inputmode="numeric" pattern="[1-9][0-9]{0,8}" maxlength="9" required></label>
+            <label>Tipo de solicitação<select name="tipo" required>
+                <option value="acesso">Confirmação e acesso aos meus dados</option>
+                <option value="correcao">Correção de dados</option>
+                <option value="eliminacao">Avaliar eliminação ou anonimização</option>
+                <option value="informacao">Informações sobre uso e compartilhamento</option>
+                <option value="oposicao">Oposição ou revisão de tratamento</option>
+                <option value="revogacao">Revogação de consentimento opcional</option>
+                <option value="acessibilidade">Relatar barreira de acessibilidade</option>
+            </select></label>
+            <label>Contexto, se necessário (opcional, até 1.000 caracteres)<textarea name="detalhes" maxlength="1000"></textarea></label>
+            <p>O protocolo confirma o recebimento do pedido. A exclusão ou alteração de registros exige análise; nada será apagado automaticamente.</p>
+            <button id="enviar" type="submit" disabled>Registrar solicitação</button>
+            <button id="modelo" type="button">Baixar requerimento sem enviar</button>
+            <button id="consultar" type="button" disabled>Consultar pedidos desta conta</button>
+        </form>
+        <p id="resultado" role="status" aria-live="polite"></p>
+        <section id="pedidos" aria-label="Pedidos e respostas"></section>
+    </main>
+    <script type="module" src="legal/direitos.js"></script>
+</body>
+</html>

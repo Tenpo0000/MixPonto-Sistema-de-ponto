@@ -25,6 +25,8 @@ export async function authorizeMobile(db, owner, fid, uid, credentials = null) {
         if (current && current.timestamp >= latest) return current;
         return { timestamp: latest, requestId: 'migracao', origem: 'migracao', authUid: owner };
     });
+    // owner é a chave interna da conta, não necessariamente o UID do titular.
+    // acessosMobile autoriza o app; mobileAcessos é o espelho usado pelo painel.
     const access = { empresaUid: owner, funcionarioId: fid, ativo: true, vinculadoEm: serverTimestamp() };
     const changes = {
         [`contas/${owner}/acessosMobile/${uid}`]: access,
@@ -36,17 +38,15 @@ export async function authorizeMobile(db, owner, fid, uid, credentials = null) {
             empresa: company.empresas?.[f.empresaId]?.nome || company.empresa?.nome || 'Sua empresa',
         },
     };
-    if (credentials) {
-        changes[`contas/${owner}/credenciaisApp/${fid}`] = {
-            email: request.email, senha: credentials.password, authUid: uid,
-            atualizadoEm: serverTimestamp(),
-        };
-    }
-    credentials?.onStage?.('salvar credenciais e liberar o vínculo em acessosMobile');
+    // A senha serve somente à autenticação temporária no Firebase Auth.
+    // Não pode ser copiada para o cadastro ou para o Realtime Database.
+    credentials?.onStage?.('liberar o vínculo em acessosMobile');
     await update(ref(db), changes);
     return request.email;
 }
 
+// Revoga somente o vínculo nesta conta. Não exclui a identidade Auth nem pontos,
+// pois a mesma pessoa pode ter vínculos e histórico em outras empresas.
 export async function revokeMobile(db, owner, uid) {
     const mirror = (await get(ref(db, `contas/${owner}/mobileAcessos/${uid}`))).val();
     if (!mirror?.funcionarioId) throw Error('O vínculo deste funcionário não foi encontrado nesta empresa.');

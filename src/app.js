@@ -132,9 +132,9 @@ function iniciar() {
             titulo: 'Sobre o sistema',
             corpo: `
                 <p style="font-size:14px;line-height:1.6">
-                    Sistema de ponto da Mix Telecomunicações,
+                    MixPonto,
                     <strong>protótipo de demonstração</strong>
-                    . Construído com HTML, CSS e JavaScript puro, com dados no Firebase Realtime
+                    . Sem alegação de certificação de registro eletrônico de ponto. Dados no Firebase Realtime
                     Database.
                 </p>
                 <p class="dica" style="margin-top:12px">
@@ -167,7 +167,6 @@ function iniciar() {
         'registros',
         'batidasMobile',
         'mobileAcessos',
-        'credenciaisApp',
         'ajustes',
         'feriados',
         'config',
@@ -182,10 +181,12 @@ function iniciar() {
         'usuarios'
     ].forEach((p) =>
         {
-        if (permissao === 'visualizador' && (p === 'credenciaisApp' || p === 'usuarios')) {
+        if (permissao !== 'administrador' && p === 'usuarios') {
             state[p] = {}; state.carregados[p] = true; return;
         }
         db.listen(p, (v) => {
+            // Terminal e app chegam em fontes separadas. Só considerar a visão
+            // integrada pronta depois de receber ambas, mesmo quando vazias.
             if (p === 'registros' || p === 'batidasMobile') {
                 fontesBatidas[p] = v || {};
                 fontesCarregadas[p] = true;

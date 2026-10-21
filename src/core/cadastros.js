@@ -48,8 +48,13 @@ export function erroForm(form, mensagem, campo) {
     if (el) {
         el.hidden = false;
         el.textContent = mensagem;
+        el.setAttribute?.('role', 'alert');
     }
-    if (campo) $(`[name="${campo}"]`, form)?.focus();
+    if (campo) {
+        const input = $(`[name="${campo}"]`, form);
+        input?.setAttribute?.('aria-invalid', 'true');
+        input?.focus();
+    }
 }
 
 export function campo(nome, rotulo, valor = '', opts = '') {

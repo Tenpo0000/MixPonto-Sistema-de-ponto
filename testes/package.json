@@ -3,6 +3,6 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "test:local": "node --test isolamento-local.cjs contas-local.cjs conta-id.cjs rfid-local.cjs cadastros-local.cjs jornada-demissao.cjs periodo-cadastro.cjs batidas-manuais.cjs acesso-app.cjs migracao.test.mjs ids-contas-migracao.test.mjs troca-conta.cjs gestao-navegacao.cjs"
+        "test:local": "node --test isolamento-local.cjs contas-local.cjs conta-id.cjs rfid-local.cjs cadastros-local.cjs jornada-demissao.cjs periodo-cadastro.cjs batidas-manuais.cjs acesso-app.cjs migracao.test.mjs ids-contas-migracao.test.mjs troca-conta.cjs gestao-navegacao.cjs conta-seletor.cjs privacidade.cjs"
     }
 }

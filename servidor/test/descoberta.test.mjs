@@ -41,6 +41,17 @@ test('descoberta expõe um código por conta sem depender de quantas empresas el
     const result = await descobrirContas(f.store, { uid: 'A', email_verified: false });
     assert.equal(result.length, 1); assert.equal(result[0].codigoApp, '1');
 });
+
+test('troca consulta somente o destino, verifica permissão atual e não enumera outras contas',async()=>{
+    const f=fixture(), identity={uid:'shared',email:'shared@example.com',email_verified:true};
+    f.store.listAccountIds=()=>{throw Error('Não deve enumerar todas as contas na troca.');};
+    assert.deepEqual((await descobrirContas(f.store,identity,'A')).map(c=>c.id),['A']);
+    assert.ok(f.paths.every(p=>p.startsWith('contas/A/')));
+    f.data['contas/A/usuarios/p'].status='bloqueado';
+    assert.deepEqual(await descobrirContas(f.store,identity,'A'),[]);
+    assert.deepEqual(await descobrirContas(f.store,identity,'../B'),[]);
+    assert.deepEqual(await descobrirContas(f.store,identity,'C'),[]);
+});
 test('servidor bloqueia autenticação de emulador em configuração de produção', () => {
     const env = { ...process.env, FIREBASE_PROJECT_ID: 'mixponto-ffe50', FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099' };
     delete env.FIREBASE_DATABASE_EMULATOR_HOST;
@@ -63,6 +74,10 @@ test('API exige token, rejeita origem e UID informados pelo cliente e não publi
     const response = await fetch(base + '/api/contas', { headers: { Origin: 'https://site.example', Authorization: 'Bearer valid' } });
     assert.equal(response.status, 200); assert.equal(verified, 'valid');
     assert.deepEqual((await response.json()).contas.map(c => c.id), ['A','B']);
+    const headers={Authorization:'Bearer valid'};
+    assert.deepEqual((await (await fetch(base+'/api/contas/A',{headers})).json()).contas.map(c=>c.id),['A']);
+    assert.deepEqual((await (await fetch(base+'/api/contas/C',{headers})).json()).contas,[]);
+    assert.equal((await fetch(base+'/api/contas/A?uid=other',{headers})).status,400);
     assert.equal(response.headers.get('cache-control'), 'no-store');
     assert.equal((await fetch(base + '/servidor/.env.example')).status, 404);
     assert.equal((await fetch(base + '/src/index.html')).status, 200);

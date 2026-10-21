@@ -6,6 +6,8 @@ const databases = new WeakMap();
 export function ref(db, path) { const result = sdkRef(db, path); databases.set(result, db); return result; }
 export function push(parent) { const result = sdkPush(parent); databases.set(result, databases.get(parent)); return result; }
 
+// Um PATCH na raiz pode conter vários caminhos da mesma conta. Recusar mais
+// de uma conta evita misturar ambientes; a autorização permanece nas regras.
 function tenant(reference, changes) {
     const path = new URL(reference.toString()).pathname.split('/').filter(Boolean).map(decodeURIComponent);
     if (path[0] === 'contas') return path[1];
@@ -67,6 +69,8 @@ export async function update(reference, changes) {
 }
 export const remove = (reference) => set(reference, null);
 
+// O ETag impede sobrescrever uma alteração concorrente. mutate pode ser chamado
+// novamente após conflito: deve calcular o valor sem efeitos externos.
 export async function runTransaction(reference, mutate) {
     for (let attempt = 0; attempt < 25; attempt++) {
         const current = await request(reference, 'GET', undefined, { 'X-Firebase-ETag': 'true' });
@@ -103,10 +107,12 @@ export function onValue(reference, callback, onError = () => {}) {
     const active = globalThis.window?.fb?.contaAtiva;
     const parts = new URL(reference.toString()).pathname.split('/').filter(Boolean).map(decodeURIComponent);
     if (parts[0] === 'contas' && active?.id === parts[1] && parts.length > 2 &&
-        (active.permissao === 'administrador' || active.permissao === 'rh')) {
+        active.permissao === 'administrador') {
         const database = databases.get(reference);
         const key = `${database.app.name}:${getAuth(database.app).currentUser?.uid}:${active.id}`;
         let stream = streams.get(key);
+        // Administradores podem ler a raiz; compartilhar um stream reduz conexões.
+        // As demais funções usam leituras restritas às coleções autorizadas.
         if (!stream) {
             stream = { subscribers: new Set(), ready: false, value: null };
             streams.set(key, stream);
@@ -127,8 +133,9 @@ export function onValue(reference, callback, onError = () => {}) {
             if (!stream.subscribers.size) { stream.off(); streams.delete(key); }
         };
     }
-    // Visualizadores não leem a raiz privada; GETs finitos evitam dezenas de SSEs por aba.
-    if (active?.permissao === 'visualizador' && parts[0] === 'contas') {
+    // RH e visualizadores não leem a raiz privada; consultas periódicas às coleções
+    // evitam abrir uma conexão permanente para cada coleção e aba.
+    if ((active?.permissao === 'visualizador' || active?.permissao === 'rh') && parts[0] === 'contas') {
         let stopped = false, timer, previous;
         async function poll() {
             try {

@@ -92,7 +92,7 @@ ${esc(rascunho.descricao)}</textarea>
                             ${rascunho.contarComoFalta ? 'A ausência será contada como falta.' : 'A ausência será registrada como justificada.'}
                         </p>
                         <small>
-                            A justificativa será disponibilizada no ajuste do cartão ponto.
+                            A justificativa será disponibilizada no ajuste do cartão ponto. Não inclua diagnóstico, CID ou documentos de saúde em campos livres sem necessidade e base legal adequadas.
                         </small>
                     </section>
                     <section class="cad-dicas">

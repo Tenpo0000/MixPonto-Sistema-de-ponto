@@ -101,7 +101,7 @@ function formularioView() {
                             <div class="emp-nome">
                                 ${campo('nome', 'Nome da Empresa', 'Ex: Inova Soluções Tecnológicas', 'autocomplete="organization" required maxlength="160"')}
                             </div>
-                            ${campo('documento', 'CNPJ/CPF', '00.000.000/0000-00', 'required maxlength="18" autocapitalize="characters" spellcheck="false"')}${campo('inscricaoEstadual', 'Inscrição Estadual', 'Isento ou Nº', 'maxlength="40"')}
+                            ${campo('documento', 'CNPJ/CPF (opcional)', '00.000.000/0000-00', 'maxlength="18" autocapitalize="characters" spellcheck="false"')}${campo('inscricaoEstadual', 'Inscrição Estadual', 'Isento ou Nº', 'maxlength="40"')}
                         </div>
                     </section>
                     <div class="emp-grade-inferior">
@@ -125,7 +125,6 @@ function formularioView() {
                                             id="emp-uf"
                                             name="uf"
                                             autocomplete="address-level1"
-                                            required
                                         >
                                             <option value="">Selecione</option>
                                             ${UFS.map(
@@ -285,32 +284,22 @@ function mascaraDocumento(value) {
 }
 
 function validar(d) {
-    const campos = [
-        ['nome', 'nome da empresa'],
-        ['documento', 'CNPJ/CPF'],
-        ['cep', 'CEP'],
-        ['logradouro', 'logradouro'],
-        ['numero', 'número ou S/N'],
-        ['bairro', 'bairro'],
-        ['cidade', 'cidade'],
-        ['uf', 'UF'],
-        ['responsavel', 'nome do responsável'],
-        ['cargo', 'cargo do responsável'],
-        ['email', 'e-mail do responsável']
-    ];
+    // O registro inicial precisa apenas de um nome; dados fiscais são opcionais
+    // e devem ser preenchidos quando houver necessidade documentada.
+    const campos = [['nome', 'nome da empresa']];
     for (const [nome, label] of campos)
         if (!d[nome]) return { campo: nome, mensagem: `Preencha ${label}.` };
     const documento = d.documento.replace(/[^A-Z0-9]/gi, '');
-    if (!(/^\d{11}$/.test(documento) || /^[A-Z0-9]{12}\d{2}$/.test(documento)))
+    if (documento && !(/^\d{11}$/.test(documento) || /^[A-Z0-9]{12}\d{2}$/.test(documento)))
         return {
             campo: 'documento',
             mensagem:
                 'Informe um CPF com 11 dígitos ou um CNPJ com 14 posições e os dois últimos dígitos numéricos.'
         };
-    if (d.cep.replace(/\D/g, '').length !== 8)
+    if (d.cep && d.cep.replace(/\D/g, '').length !== 8)
         return { campo: 'cep', mensagem: 'Informe um CEP com 8 dígitos.' };
-    if (!UFS.includes(d.uf)) return { campo: 'uf', mensagem: 'Selecione uma UF válida.' };
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email))
+    if (d.uf && !UFS.includes(d.uf)) return { campo: 'uf', mensagem: 'Selecione uma UF válida.' };
+    if (d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email))
         return { campo: 'email', mensagem: 'Informe um e-mail válido.' };
     return null;
 }
@@ -405,7 +394,7 @@ export function bind({ render }) {
             !falha &&
             empresasDisponiveis().some(
                 (e) =>
-                    e.id !== editId &&
+                    !!payload.documento && e.id !== editId &&
                     String(e.documento || '')
                         .replace(/[^A-Z0-9]/gi, '')
                         .toUpperCase() ===

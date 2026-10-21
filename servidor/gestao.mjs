@@ -4,6 +4,8 @@ const hash = value => createHash('sha256').update(value).digest('hex').slice(0,3
 const fail = (message,status=403) => { throw Object.assign(Error(message),{status}); };
 const roles = ['administrador','rh','visualizador'];
 export function plataforma(user,config) { return { geral:(config.adminUids.includes(user.uid) || user.mixpontoGeral === true),revendedor:(config.resellerUids.includes(user.uid) || user.mixpontoRevendedor === true) }; }
+// Gestão comercial e acesso operacional são permissões diferentes. Esta função
+// autoriza o painel de gestão; descobrirContas decide quais ambientes abrir.
 export function podeAdministrar(conta,user,config) {
     const p=plataforma(user,config);
     if (p.geral || (p.revendedor && conta.meta?.revendedorUid===user.uid)) return true;
@@ -23,6 +25,8 @@ export function aplicar(c,user,a,config,target,now=Date.now()) {
     if (!user.email_verified || !podeAdministrar(c,user,config)) fail('Sem permissão para gerenciar esta conta. Confirme seu e-mail.');
     if (!/^[a-zA-Z0-9_-]{1,128}$/.test(a.requestId || '')) fail('Identificador da operação inválido.',400);
     const request=hash(user.uid+a.requestId);
+    // A autorização vem antes da idempotência: repetir um pedido antigo não
+    // devolve poderes a um usuário cujo acesso já foi revogado.
     if(c.operacoes?.[request]) return c;
     if(a.tipo==='editar') {
         const nome=String(a.nome || '').trim();
@@ -75,6 +79,8 @@ export function criarConta(root,user,a,config,central,now=Date.now()) {
     if(!/^[a-zA-Z0-9_-]{1,128}$/.test(a.requestId || '')) fail('Identificador da operação inválido.',400);
     const nome=String(a.nome || '').trim();
     if(!nome || nome.length>160) fail('Informe o nome da conta.',400);
+    // Chave interna estável por operação; codigoApp é o número público usado
+    // no login mobile. Nenhum deles é o ID de um cadastro em empresas.
     const contaId='c_'+hash(user.uid+a.requestId);
     root.contas ||= {}; root.contasPorId ||= {};
     if(root.contas[contaId]) return {root,contaId};

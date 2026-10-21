@@ -27,6 +27,8 @@ const handler = criarHandler({
     gestao,
     verifyToken: async token => {
         const identity=await getAuth(app).verifyIdToken(token,true);
+        // Claims do token podem ficar antigas. Ler o usuário atual faz a revogação
+        // do papel de revendedor valer sem esperar o token do navegador expirar.
         const record=await getAuth(app).getUser(identity.uid);
         return {...identity,mixpontoGeral:record.customClaims?.mixpontoGeral===true,mixpontoRevendedor:record.customClaims?.mixpontoRevendedor===true};
     }, store,

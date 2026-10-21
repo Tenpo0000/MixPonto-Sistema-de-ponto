@@ -3,12 +3,13 @@ import { totalJornada, inicioJornada } from './jornada.js';
 
 import { pad, dateKey, parseKey, lista, porNome } from './utils.js';
 
+// Projeção em memória da conta aberta, preenchida pelas assinaturas em app.js.
+// carregados distingue uma coleção vazia de uma leitura ainda não concluída.
 export const state = {
     funcionarios: {},
     registros: {},
     batidasMobile: {},
     mobileAcessos: {},
-    credenciaisApp: {},
     ajustes: {},
     feriados: {},
     config: {},
@@ -40,6 +41,7 @@ export function batidas(uid, key) {
               .sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0));
 }
 
+// Soma pares completos de entrada/saída; uma batida sem par não cria horas.
 export function totalMin(bs) {
     let t = 0;
     for (let i = 0; i + 1 < bs.length; i += 2)

@@ -1,4 +1,4 @@
-> Atualização 1.5: a API retorna codigoApp dos metadados da conta. Unidades internas não recebem códigos de login. Veja [CONTAS-1.5.md](../CONTAS-1.5.md).
+> Para a visão atual do sistema, instalação e gestão de contas, consulte o [README principal](../README.md). A API retorna `codigoApp` dos metadados da conta; unidades internas não recebem códigos de login.
 
 # Descoberta automática de contas — MixPonto 1.4
 
@@ -15,7 +15,7 @@ $env:GOOGLE_APPLICATION_CREDENTIALS='C:\caminho-fora-do-site\credencial-administ
 npm start
 ```
 
-Abra `http://127.0.0.1:8787/src/index.html`. Esse servidor entrega os arquivos públicos de `src` e a rota `GET /api/contas`. O Live Server da porta 5501, sozinho, não executa essa rota. O arquivo `.env.example` documenta as variáveis; ele não é carregado automaticamente por `npm start`.
+Abra `http://127.0.0.1:8787/src/index.html`. Esse servidor entrega os arquivos públicos de `src` e as APIs de contas e gestão. O Live Server da porta 5501, sozinho, não executa essas rotas. O arquivo `.env.example` documenta as variáveis; copie-o para `.env` para carregá-las automaticamente com `npm start`.
 
 Para produção, hospede esse processo Node com HTTPS, configure `HOST`, `PORT`, `FIREBASE_PROJECT_ID`, `FIREBASE_DATABASE_URL` e `ALLOWED_ORIGINS` (origens exatas, separadas por vírgula). A hospedagem do serviço é separada do plano Spark do banco; o código não usa Cloud Functions.
 

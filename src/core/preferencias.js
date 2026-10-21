@@ -1,3 +1,4 @@
+import { fotoLocal } from './imagens.js';
 import { state } from './state.js';
 
 export function perfilId() {
@@ -36,9 +37,9 @@ export function preencherHeader() {
                 .map((s) => s[0])
                 .join('')
                 .toUpperCase() || '?';
-        if (p.foto) {
+        if (fotoLocal(p.foto)) {
             const img = document.createElement('img');
-            img.src = p.foto;
+            img.src = fotoLocal(p.foto);
             img.alt = '';
             img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
             avatar.replaceChildren(img);

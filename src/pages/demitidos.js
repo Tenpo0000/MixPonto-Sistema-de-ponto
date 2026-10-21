@@ -1,3 +1,4 @@
+import { fotoLocal } from '../core/imagens.js';
 import { $, $$, esc, dateKey, fmtData, parseKey, iniciais, corAvatar } from '../core/utils.js';
 import { state, funcionariosAtivos } from '../core/state.js';
 import {
@@ -148,7 +149,7 @@ export function view() {
                                                                     style="background:${corAvatar(e.nome)}"
                                                                 >
                                                                     ${
-                                                                        f?.foto
+                                                                        fotoLocal(f?.foto)
                                                                             ? `
                                                                                   <img
                                                                                       src="${esc(f.foto)}"

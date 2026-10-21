@@ -19,10 +19,10 @@ function ambiente() {
         window:{fb:{auth:{currentUser:{uid:'u',emailVerified:true,getIdToken:async()=> 'token'}},contasApiUrl:'/api/contas'},dispatchEvent(){}},
         document:{getElementById:id=>elements.get(id),createElement:element,body:{appendChild(el){elements.set(el.id,el);}}},
         location:{href:'http://127.0.0.1:8787/src/index.html',reload(){calls.reload++;}},
-        URL,AbortSignal,crypto,Event:class{},
+        URL,AbortSignal,crypto,conterFoco:()=>()=>{},Event:class{},
         fetch:async()=>{calls.requests++;return new Promise(resolve=>pending.push(value=>resolve({ok:true,json:async()=>value})));}
     });
-    vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/core/gestao.js'),'utf8').replace(/export /g,'')+'\nthis.abrir=abrirGestao;',context);
+    vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/core/gestao.js'),'utf8').replace(/^import .*;$/gm,'').replace(/export /g,'')+'\nthis.abrir=abrirGestao;',context);
     return {context,calls,pending,panel:()=>elements.get('gestao-painel'),finish:()=>pending.shift()({contas:[],geral:false,revendedor:false})};
 }
 const tick=async()=>{await Promise.resolve();await Promise.resolve();};

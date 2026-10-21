@@ -10,16 +10,12 @@ export async function descobrirContas(store, identity, contaId = null) {
         
         const base = `contas/${id}`;
         const email = identity.email?.toLowerCase();
-        const [meta, grant] = await Promise.all([
-            store.get(`${base}/meta`),
-            identity.email_verified && email ? store.get(`${base}/acessosContas/${emailKey(email)}`) : null,
-        ]);
+        const meta = await store.get(`${base}/meta`);
         if (!meta?.ownerUid) return;
         const owner = identity.uid === meta.ownerUid && (meta.gestaoVersao !== 2 || identity.email_verified);
-        if (!owner && (!grant || !safeId(grant.usuarioId) || grant.email !== email || grant.status !== 'ativo' || !roles.has(grant.permissao))) return;
-        const [titular, profile, nome] = await Promise.all([
+        const [titular, grant, nome] = await Promise.all([
             store.get(`${base}/titularesAutorizados/${meta.ownerUid}`),
-            !owner ? store.get(`${base}/usuarios/${grant.usuarioId}`) : null,
+            !owner && identity.email_verified && email ? store.get(`${base}/acessosContas/${emailKey(email)}`) : null,
             owner && !meta.nome ? store.get(`${base}/empresa/nome`) : null,
         ]);
         if (!meta?.ownerUid || titular !== true) return;
@@ -27,6 +23,8 @@ export async function descobrirContas(store, identity, contaId = null) {
             return { id, codigoApp: meta.codigoApp || '', nome: nome || meta.nome || 'Minha empresa', permissao: 'administrador', titular: true };
         }
         if (!identity.email_verified || !identity.email) return;
+        if (!grant || !safeId(grant.usuarioId) || grant.email !== email || grant.status !== 'ativo' || !roles.has(grant.permissao)) return;
+        const profile = await store.get(`${base}/usuarios/${grant.usuarioId}`);
         if (profile?.status !== 'ativo' || profile.email !== email || profile.permissao !== grant.permissao) return;
         return { id, codigoApp: meta.codigoApp || '', nome: grant.nomeConta || meta.nome || 'Empresa', permissao: grant.permissao, titular: false };
     }

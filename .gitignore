@@ -6,3 +6,6 @@ jspm_packages/
 *.log
 npm-debug.log*
 firebase-debug.log
+
+# Relatórios locais de ativação (fora da pasta pública)
+servidor/relatorios-privacidade/

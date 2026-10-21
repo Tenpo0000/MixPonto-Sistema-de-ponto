@@ -1,3 +1,4 @@
+import { fotoLocal } from '../core/imagens.js';
 import { inicioJornada, fimJornada } from '../core/jornada.js';
 import { $, $$, esc, dateKey, lista } from '../core/utils.js';
 import { state } from '../core/state.js';
@@ -87,14 +88,6 @@ function acessoSalvo() {
     };
 }
 
-function credencialSalva() {
-    const acesso = acessoSalvo();
-    const credencial = state.credenciaisApp?.[editId];
-    return credencial?.authUid === acesso.uid && credencial?.email === acesso.email
-        ? credencial
-        : null;
-}
-
 function acessoPeloAplicativo() {
     const acessos = Object.entries(state.mobileAcessos || {}).filter(
         ([, acesso]) => acesso.funcionarioId === editId
@@ -108,9 +101,9 @@ function acessoPeloAplicativo() {
             <h2>Acesso pelo aplicativo</h2>
             <p class="cad-ajuda">
                 Defina o e-mail e a senha que o funcionário usará para entrar no aplicativo e bater ponto.
-                Os dados de acesso são salvos ao clicar em Salvar Funcionário.
+                O vínculo é salvo ao clicar em Salvar Funcionário. A senha não é armazenada neste cadastro.
             </p>
-            ${salvo.uid && !credencialSalva() ? '<p class="cad-ajuda cad-espaco">Este acesso foi criado antes da exibição de senhas. Informe a senha atual e salve uma vez para mantê-la visível neste cadastro.</p>' : ''}
+
             <div class="cad-duas-colunas cad-espaco">
                 <label class="cad-campo">
                     <span>E-mail de acesso ao aplicativo</span>
@@ -118,14 +111,14 @@ function acessoPeloAplicativo() {
                 </label>
                 <label class="cad-campo">
                     <span>Senha de acesso ao aplicativo</span>
-                    <input id="func-mobile-senha" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" minlength="8" placeholder="${salvo.uid ? 'Informe a senha atual para exibi-la' : 'Defina a senha do aplicativo'}" ${bloqueado ? 'disabled' : ''} />
+                    <input id="func-mobile-senha" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="off" minlength="8" placeholder="${salvo.uid ? 'Deixe em branco para manter o acesso' : 'Defina a senha do aplicativo'}" ${bloqueado ? 'disabled' : ''} />
                 </label>
                 <label class="cad-campo">
                     <span>Confirmar senha</span>
                     <input id="func-mobile-confirmar" type="password" autocomplete="new-password" minlength="8" ${bloqueado ? 'disabled' : ''} />
                 </label>
             </div>
-            <p class="cad-ajuda cad-espaco">O e-mail e a senha ficam visíveis neste cadastro para o administrador. Mantenha os valores preenchidos para conservar o acesso atual. Use ao menos 8 caracteres ao criar o acesso.</p>
+            <p class="cad-ajuda cad-espaco">O e-mail permanece no cadastro. Senhas não podem ser recuperadas aqui. Deixe senha e confirmação vazias para manter o vínculo atual. Use a recuperação do Firebase para alterar uma senha existente.</p>
             <p id="func-mobile-mensagem" class="cad-ajuda cad-espaco" role="status" aria-live="polite">${esc(mobileMensagem)}</p>
             ${salvo.uid && state.mobileAcessos?.[salvo.uid]?.ativo === false ? `<button id="func-mobile-liberar" type="submit" class="btn btn-primario" ${bloqueado ? 'disabled' : ''}>Salvar e liberar acesso novamente</button>` : ''}
             ${acessos.length ? `<h3 class="cad-espaco">Acessos deste funcionário</h3>${acessos.map(([uid, acesso]) => `
@@ -179,7 +172,7 @@ export function view() {
                                 <h2>Informações Pessoais</h2>
                                 ${campo('nome', 'Nome Completo', draft.nome, 'autocomplete="name" maxlength="160" placeholder="Ex: Maria Oliveira Silva" required')}
                                 <div class="cad-duas-colunas cad-espaco">
-                                    ${campo('cpf', 'CPF', draft.cpf, 'inputmode="numeric" maxlength="14" placeholder="000.000.000-00" required')}${campo('matricula', 'Número de Folha (PIS/Registro)', draft.matricula, 'maxlength="40" placeholder="123456" required')}
+                                    ${campo('cpf', 'CPF (opcional)', draft.cpf, 'inputmode="numeric" maxlength="14" placeholder="000.000.000-00"')}${campo('matricula', 'Matrícula / número interno', draft.matricula, 'maxlength="40" placeholder="123456" required')}
                                 </div>
                                 <div class="cad-duas-colunas cad-espaco">
                                     ${campo('admissao', 'Data de Admissão', draft.admissao, 'type="date" required')}
@@ -240,7 +233,7 @@ export function view() {
                             <label class="cad-foto" for="func-foto">
                                 <span class="cad-foto-preview" id="func-preview">
                                     ${
-                                        draft.foto
+                                        fotoLocal(draft.foto)
                                             ? `
                                                   <img
                                                       src="${esc(draft.foto)}"
@@ -250,8 +243,8 @@ export function view() {
                                             : '<span aria-hidden="true">♧</span>'
                                     }
                                 </span>
-                                <strong>Foto do Colaborador</strong>
-                                <small>Clique para fazer upload (PNG ou JPG, até 5 MB)</small>
+                                <strong>Foto do colaborador (opcional)</strong>
+                                <small>Use somente foto autorizada para esta finalidade (PNG ou JPG, até 5 MB)</small>
                                 <input
                                     type="file"
                                     id="func-foto"
@@ -291,9 +284,9 @@ function cpfMask(v) {
 }
 
 export function validarFuncionario(d, id) {
-    if (!d.nome || !d.matricula || !d.cpf || !d.admissao)
-        return 'Preencha nome, CPF, número de folha e admissão.';
-    if (d.cpf.replace(/\D/g, '').length !== 11) return 'Informe um CPF com 11 dígitos.';
+    if (!d.nome || !d.matricula || !d.admissao)
+        return 'Preencha nome, número de folha e admissão.';
+    if (d.cpf && d.cpf.replace(/\D/g, '').length !== 11) return 'Informe um CPF com 11 dígitos.';
     if (
         !/^\d{4}-\d{2}-\d{2}$/.test(d.admissao) ||
         dateKey(new Date(d.admissao + 'T12:00:00')) !== d.admissao
@@ -302,7 +295,7 @@ export function validarFuncionario(d, id) {
     const erroCartao = validarCartao(d.cartaoUid, id);
     if (erroCartao) return erroCartao;
     const outros = lista(state.funcionarios).filter((f) => f.id !== id);
-    if (outros.some((f) => String(f.cpf || '').replace(/\D/g, '') === d.cpf.replace(/\D/g, '')))
+    if (d.cpf && outros.some((f) => String(f.cpf || '').replace(/\D/g, '') === d.cpf.replace(/\D/g, '')))
         return 'Já existe um funcionário com esse CPF.';
     if (
         outros.some(
@@ -331,8 +324,8 @@ export function bind({ render }) {
     const form = $('#func-form');
     $('#func-mobile-email').value = mobileEmail ?? acessoSalvo().email;
     $('#func-mobile-email').addEventListener('input', (e) => { mobileEmail = e.target.value; });
-    $('#func-mobile-senha').value = mobileSenha ?? credencialSalva()?.senha ?? '';
-    $('#func-mobile-confirmar').value = mobileConfirmar ?? credencialSalva()?.senha ?? '';
+    $('#func-mobile-senha').value = mobileSenha ?? '';
+    $('#func-mobile-confirmar').value = mobileConfirmar ?? '';
     $('#func-mobile-senha').addEventListener('input', (e) => { mobileSenha = e.target.value; });
     $('#func-mobile-confirmar').addEventListener('input', (e) => { mobileConfirmar = e.target.value; });
     $$('[data-mobile-revogar]').forEach((button) => {
@@ -438,13 +431,13 @@ export function bind({ render }) {
         const email = $('#func-mobile-email').value.trim().toLowerCase();
         const password = $('#func-mobile-senha').value;
         const confirmation = $('#func-mobile-confirmar').value;
-        // Confirma também o vínculo no servidor, mesmo com os campos inalterados.
+        // Salvar o cadastro não deve reativar um vínculo revogado: essa ação
+        // exige senha informada e o botão específico de liberação.
         const revogado = acessoAnterior.uid && state.mobileAcessos?.[acessoAnterior.uid]?.ativo === false;
         const papel = globalThis.window?.fb?.contaAtiva?.permissao;
         const podeLiberar = !papel || papel === 'administrador';
         const configurarAcesso = podeLiberar && !!password && (!revogado || e.submitter?.id === 'func-mobile-liberar');
-        if (revogado && !configurarAcesso && password &&
-            (password !== credencialSalva()?.senha || email !== acessoAnterior.email))
+        if (revogado && !configurarAcesso && password)
             return erroForm(form, 'Para configurar estas credenciais e reativar o aplicativo, use Salvar e liberar acesso novamente.');
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
             return erroForm(form, 'Informe um e-mail válido para o aplicativo.');
@@ -468,6 +461,8 @@ export function bind({ render }) {
             foto: draft.foto || '',
             ...(!editId ? { dataCadastro: dateKey(agora), cadastradoEm: agora.toISOString() } : {})
         };
+        // Remove campos legados de senha caso um cadastro antigo ainda esteja em memória.
+        for (const field of ['senha', 'password', 'senhaApp', 'appPassword', 'mobilePassword', 'senhaMobile']) delete salvo[field];
         if (acessoAnterior.uid) {
             salvo.emailApp = acessoAnterior.email;
             salvo.appAuthUid = acessoAnterior.uid;
@@ -494,6 +489,8 @@ export function bind({ render }) {
             salvo.saida = fimJornada(dia?.horarios) || '17:00';
         }
         const id = editId || novoId('funcionarios');
+        // RTDB e Authentication não compartilham uma transação. Guardar a etapa
+        // concluída permite informar uma falha parcial sem perder o cadastro.
         let cadastroSalvo = false;
         form.dataset.salvando = 'true';
         mobileOcupado = true;
@@ -509,13 +506,11 @@ export function bind({ render }) {
                 const metadata = { emailApp: acesso.email, appAuthUid: acesso.uid };
                 state.funcionarios[id] = { ...(state.funcionarios[id] || salvo), ...metadata };
                 Object.assign(draft, metadata);
-                state.credenciaisApp ||= {};
-                state.credenciaisApp[id] = { email: acesso.email, authUid: acesso.uid, senha: password };
                 mobileEmail = acesso.email;
-                mobileMensagem = 'Funcionário e acesso salvos. O e-mail e a senha permanecem visíveis no cadastro.';
+                mobileMensagem = 'Funcionário e acesso salvos. O e-mail permanece no cadastro; a senha não é guardada aqui.';
             } else {
                 mobileMensagem = acessoAnterior.uid
-                    ? 'Funcionário salvo. O e-mail e a senha cadastrados foram mantidos.'
+                    ? 'Funcionário salvo. O vínculo de acesso foi mantido sem guardar a senha.'
                     : 'Funcionário salvo.';
             }
             mobileSenha = mobileConfirmar = null;

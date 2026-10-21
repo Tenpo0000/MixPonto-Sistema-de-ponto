@@ -62,7 +62,7 @@ export async function createEmployeeAccess({ auth, db, fid, email, password, emu
         if (auth.currentUser?.uid !== administrator.uid) throw new Error('A sessão do administrador mudou. Entre novamente antes de liberar o acesso.');
         stage = 'salvar credenciais e liberar o vínculo em acessosMobile';
         const identity = (await get(identityRef)).val();
-        await authorizeMobile(db, owner, fid, user.uid, { password, identity, onStage: (value) => { stage = value; } });
+        await authorizeMobile(db, owner, fid, user.uid, { identity, onStage: (value) => { stage = value; } });
         return { uid: user.uid, email: user.email };
     } catch (error) {
         const messages = {

@@ -1,3 +1,4 @@
+import { fotoLocal } from '../core/imagens.js';
 import { empresasDisponiveis } from '../core/empresas.js';
 import { $, $$, esc, iniciais, DIAS_CURTO } from '../core/utils.js';
 import { state, cfg } from '../core/state.js';
@@ -69,7 +70,7 @@ function perfil() {
                 <label class="conf-perfil-foto" for="pref-foto">
                     <span id="pref-foto-preview">
                         ${
-                            p.foto
+                            fotoLocal(p.foto)
                                 ? `
                                       <img src="${esc(p.foto)}" alt="Foto do perfil" />
                                   `

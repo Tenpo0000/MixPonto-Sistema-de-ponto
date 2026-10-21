@@ -4,11 +4,15 @@ import { toast } from './ui.js';
 const fb = window.fb,
     uid = fb?.auth?.currentUser?.uid;
 if (!uid) throw Error('Entre na sua conta antes de carregar o sistema.');
+// UID identifica a pessoa; contaAtiva identifica o ambiente. O fallback atende
+// contas antigas cuja chave era o UID e não deve substituir a seleção atual.
 const conta = fb.contaAtiva?.id || uid;
 const base = `contas/${conta}`,
     assinaturas = new Set();
 let encerrado = false;
 
+// Este módulo fica vinculado à conta em que foi carregado. Callbacks antigos
+// não podem continuar operando depois de sair ou trocar de empresa.
 function sessao() {
     if (encerrado || fb.auth.currentUser?.uid !== uid || (fb.contaAtiva?.id || uid) !== conta)
         throw Error('A sessão mudou. Entre novamente.');
@@ -71,6 +75,7 @@ export const db = {
     remove(path) {
         return fb.remove(referencia(path));
     },
+    // Caminhos são relativos à conta: um único lote mantém vínculos consistentes.
     async update(mudancas) {
         sessao();
         if (!mudancas || typeof mudancas !== 'object' || Array.isArray(mudancas))

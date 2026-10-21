@@ -8,6 +8,7 @@
         <link rel="stylesheet" href="style.css" />
     </head>
     <body>
+        <a class="pular-conteudo" href="#view">Ir para o conteúdo principal</a>
         <section id="sessao-carregando" class="auth-tela" role="status" aria-live="polite">
             <div class="auth-cartao">
                 <h1>Sistema de Ponto</h1>
@@ -156,35 +157,24 @@
                         </button>
                         <button class="notificacoes" id="sino" aria-label="Notificações"></button>
                         <div class="usuario">
-                            <span>Joãozinho do RH</span>
-                            <small>ADMINISTRADOR</small>
+                            <span>Usuário</span>
+                            <small>—</small>
                         </div>
                         <div class="avatar" aria-hidden="true">JR</div>
                     </div>
                 </header>
-                <section class="area-trabalho" id="view"></section>
+                <section class="area-trabalho" id="view" tabindex="-1" aria-label="Conteúdo da conta"></section>
             </main>
         </div>
-        <script type="module">
-            try {
-                const { iniciar } = await import('./bootstrap.js');
-                await iniciar();
-            } catch (error) {
-                console.error('Falha ao iniciar:', error);
-                document.getElementById('sessao-carregando').hidden = true;
-                document.getElementById('auth-tela').hidden = false;
-                const mensagem = document.getElementById('auth-mensagem');
-                mensagem.classList.add('auth-erro');
-                mensagem.textContent =
-                    'Não foi possível carregar o acesso. Confira a conexão e os arquivos do projeto. Detalhe: ' +
-                    String(error.message || error);
-                document.getElementById('auth-form').hidden = true;
-                document.getElementById('auth-alternar').hidden = true;
-                document.getElementById('auth-recuperar').hidden = true;
-                const reload = document.getElementById('auth-recarregar');
-                reload.hidden = false;
-                reload.onclick = () => location.reload();
-            }
-        </script>
+        <footer class="rodape-legal" aria-label="Privacidade e condições de uso">
+            <a href="politicas.html#privacidade">Privacidade</a>
+            <a href="politicas.html#termos">Termos</a>
+            <a href="politicas.html#reembolso">Cancelamento e reembolso</a>
+            <a href="direitos.html">Solicitações LGPD</a>
+            <a href="politicas.html#acessibilidade">Acessibilidade</a>
+            <button type="button" data-aviso-privacidade>Cookies e armazenamento</button>
+        </footer>
+        <script type="module" src="legal/privacidade.js"></script>
+        <script type="module" src="bootstrap-entry.js"></script>
     </body>
 </html>

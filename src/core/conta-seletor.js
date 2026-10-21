@@ -23,7 +23,7 @@ export function atualizarSeletorContas(select, contas, ativa) {
                 const text=document.createElement('span'), name=document.createElement('strong'), id=document.createElement('small'), check=document.createElement('span');
                 name.textContent=c.nome;id.textContent=`ID ${c.codigoApp || 'pendente'}`;check.textContent=current?'✓':'→';check.setAttribute('aria-hidden','true');
                 text.append(name,id);button.append(text,check);
-                button.onclick=()=>{fechar();if(current)return;select.value=c.id;select.dispatchEvent(new Event('change'));};
+                button.onclick=()=>{fechar(true);if(current)return;select.value=c.id;select.dispatchEvent(new Event('change'));};
                 list.appendChild(button);
             }
             root.querySelector('.conta-switch-vazio').hidden=matches.length>0;
@@ -36,7 +36,8 @@ export function atualizarSeletorContas(select, contas, ativa) {
             if(e.key==='ArrowDown' || e.key==='ArrowUp') {
                 e.preventDefault();if(popover.hidden)abrir();
                 const options=[...list.querySelectorAll('button')], index=options.indexOf(document.activeElement);
-                options[(index+(e.key==='ArrowDown'?1:-1)+options.length)%options.length]?.focus();
+                const next=index<0?(e.key==='ArrowDown'?0:options.length-1):(index+(e.key==='ArrowDown'?1:-1)+options.length)%options.length;
+                options[next]?.focus();
             }
         });
         const outside=e=>{if(!root.contains(e.target))fechar();};

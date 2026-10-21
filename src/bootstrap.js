@@ -12,6 +12,8 @@ let modo = 'entrar',
     importTentado = false;
 let abrindo = false;
 
+// A intenção de troca dura um minuto e é consumida uma única vez. Ela só evita
+// redescobrir todas as contas; a API ainda precisa autorizar o destino.
 function destinoTroca(user, preferida) {
     let troca;
     try {troca=JSON.parse(sessionStorage.getItem('mixponto-troca') || 'null');sessionStorage.removeItem('mixponto-troca');} catch {return null;}
@@ -97,6 +99,7 @@ async function abrir(user, discreto = false) {
     try {
         const chave = `mixponto-conta-${user.uid}`;
         const destino=destinoTroca(user,localStorage.getItem(chave));
+        // Convites são aceitos ao entrar; trocar de empresa não repete essa busca.
         if(!destino && user.emailVerified) await gestaoApi('/aceitar',{});
         const contas = await contasDisponiveis(fb, user, destino);
         if(destino && !contas.some(c=>c.id===destino)) throw Object.assign(Error('Acesso revogado.'),{code:'permission_denied'});
@@ -110,7 +113,7 @@ async function abrir(user, discreto = false) {
                 const botao = document.createElement('button');
                 botao.type = 'button';
                 botao.className = 'btn btn-primario';
-                botao.textContent = conta.nome;
+                botao.textContent = `${conta.nome} · ID ${conta.codigoApp || 'pendente'}`;
                 botao.onclick = () => { localStorage.setItem(chave, conta.id); abrir(user); };
                 lista.appendChild(botao);
             });
@@ -135,6 +138,7 @@ async function abrir(user, discreto = false) {
             carregando('Trocando de conta…');
             localStorage.setItem(chave, seletor.value);
             sessionStorage.setItem('mixponto-troca',JSON.stringify({uid:user.uid,conta:seletor.value,em:Date.now()}));
+            // Encerra assinaturas antes do reload, preservando o login do Firebase.
             window.dispatchEvent(new Event('mixponto:encerrar'));
             location.reload();
         };
@@ -220,6 +224,8 @@ export async function iniciar() {
         if(!parent) continue;
         const button=document.createElement('button');button.type='button';button.className='btn btn-gestao';button.textContent='Gestão de contas';button.onclick=abrirGestao;parent.appendChild(button);
     }
+    // Atualiza a interface após revogações. A segurança de cada leitura/gravação
+    // continua nas regras do banco, sem depender deste intervalo.
     let verificando=false;
     setInterval(async()=>{
         if(!appUid || verificando) return;

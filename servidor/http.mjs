@@ -7,6 +7,21 @@ export function criarHandler({ verifyToken, store, siteRoot, allowedOrigins = []
         const json = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(body)); };
         res.setHeader('Cache-Control', 'no-store');
         res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        res.setHeader('X-Frame-Options', 'DENY');
+        res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        // Bibliotecas Firebase são necessárias ao login. Não liberar domínios de
+        // publicidade/analytics para contornar as escolhas de privacidade.
+        res.setHeader('Content-Security-Policy', [
+            "default-src 'self'",
+            "script-src 'self' https://www.gstatic.com",
+            "style-src 'self' 'unsafe-inline'",
+            "font-src 'self'",
+            "img-src 'self' data: blob:",
+            "connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.firebaseapp.com",
+            "frame-src https://*.firebaseapp.com",
+            "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'",
+        ].join('; '));
         const origin = req.headers.origin;
         if (origin && !allowedOrigins.includes(origin)) return json(403, { error: 'Origem não autorizada.' });
         if (origin) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin'); }
@@ -64,7 +79,7 @@ export function criarHandler({ verifyToken, store, siteRoot, allowedOrigins = []
         if (!siteRoot || !['GET', 'HEAD'].includes(req.method)) return json(404, { error: 'Não encontrado.' });
         if (url.pathname === '/') { res.writeHead(302, { Location: '/src/index.html' }); return res.end(); }
         if (!url.pathname.startsWith('/src/')) return json(404, { error: 'Não encontrado.' });
-        const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
+        const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
         try {
             const publicRoot = await realpath(path.join(siteRoot, 'src'));
             const file = await realpath(path.resolve(siteRoot, '.' + decodeURIComponent(url.pathname)));

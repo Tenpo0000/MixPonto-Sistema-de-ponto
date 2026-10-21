@@ -1,5 +1,7 @@
 /* Toast e modal */
 import { $, $$, esc } from './utils.js';
+import { conterFoco } from './foco.js';
+let liberarFoco = null;
 
 export function toast(msg, tipo) {
     const el = document.createElement('div');
@@ -11,7 +13,11 @@ export function toast(msg, tipo) {
     setTimeout(() => { el.classList.remove('visivel'); setTimeout(() => el.remove(), 300); }, 3200);
 }
 
-export function fecharModal() { $('#modal-container')?.remove(); }
+export function fecharModal() {
+    $('#modal-container')?.remove();
+    liberarFoco?.();
+    liberarFoco = null;
+}
 
 export function abrirModal({ titulo, corpo, salvarTxt = 'Salvar', onSalvar, largo = false, aoAbrir }) {
     fecharModal();
@@ -25,7 +31,7 @@ export function abrirModal({ titulo, corpo, salvarTxt = 'Salvar', onSalvar, larg
                     <button type="button" class="fechar-modal" aria-label="Fechar">&times;</button>
                 </div>
                 <form novalidate>
-                    <div class="modal-corpo">${corpo}<p class="erro" id="modal-erro" hidden></p></div>
+                    <div class="modal-corpo">${corpo}<p class="erro" id="modal-erro" role="alert" tabindex="-1" hidden></p></div>
                     <div class="modal-rodape">
                         <button type="button" class="btn btn-secundario fechar-modal-btn">${onSalvar ? 'Cancelar' : 'Fechar'}</button>
                         ${onSalvar ? `<button type="submit" class="btn btn-primario">${esc(salvarTxt)}</button>` : ''}
@@ -34,6 +40,7 @@ export function abrirModal({ titulo, corpo, salvarTxt = 'Salvar', onSalvar, larg
             </div>
         </div>`;
     document.body.appendChild(c);
+    liberarFoco = conterFoco(c, fecharModal);
     const overlay = $('.modal-overlay', c);
     overlay.addEventListener('mousedown', e => { if (e.target === overlay) fecharModal(); });
     $$('.fechar-modal, .fechar-modal-btn', c).forEach(b => b.addEventListener('click', fecharModal));
@@ -44,11 +51,10 @@ export function abrirModal({ titulo, corpo, salvarTxt = 'Salvar', onSalvar, larg
         if (typeof erro === 'string') {
             const p = $('#modal-erro', c);
             p.textContent = erro; p.hidden = false;
+            p.focus();
         } else fecharModal();
     });
     aoAbrir?.(c);
     $('input:not([type=hidden]), select, textarea', c)?.focus();
     return c;
 }
-
-document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });

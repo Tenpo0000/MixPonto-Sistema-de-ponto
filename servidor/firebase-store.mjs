@@ -11,5 +11,7 @@ export function criarStore({ databaseURL, credential, projectId, emulatorHost })
         if (!response.ok) throw Error('Falha ao consultar o banco.');
         return response.json();
     }
+    // shallow busca somente as chaves; descobrir permissões não deve baixar
+    // funcionários, batidas ou requerimentos de todas as contas.
     return { get: read, listAccountIds: async () => Object.keys((await read('contas', true)) || {}) };
 }

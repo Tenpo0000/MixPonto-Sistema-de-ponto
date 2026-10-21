@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, '../src/bootstrap.js'), 'utf
     .replace("await import('./app.js');", 'await carregarApp();');
 
 function ambiente(storage = new Map([['mixponto-conta-user', 'A']]), error = null) {
-    const nodes = new Map(), events = {}, calls = { signOut: 0, reload: 0, reads: [], loaded: 0 };
+    const nodes = new Map(), events = {}, calls = { signOut: 0, reload: 0, reads: [], loaded: 0, descobertas: [], convites: 0 };
     const element = () => ({ hidden: false, value: '', textContent: '',
         classList: { toggle() {} }, addEventListener() {}, setAttribute() {}, before() {},
         replaceChildren() {}, add() {}, appendChild() {} });
@@ -29,9 +29,11 @@ function ambiente(storage = new Map([['mixponto-conta-user', 'A']]), error = nul
         document: { querySelector: get, createElement: element },
         location: { reload: () => calls.reload++ }, console: { error() {} },
         localStorage: { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k) },
+        sessionStorage: { getItem: k => storage.get(k) ?? null, setItem: (k,v) => storage.set(k,v), removeItem: k => storage.delete(k) },
+        Date, atualizarSeletorContas() {},
         Event: function() {}, Option: function(text, value) { return { text, value }; }, setInterval() {},
-        gestaoApi: async () => ({}), abrirGestao() {}, carregarApp: async () => calls.loaded++,
-        contasDisponiveis: async () => ['A', 'B'].map(id => ({ id, nome: id, codigoApp: id === 'A' ? '1' : '2', permissao: 'administrador' }))
+        gestaoApi: async () => {calls.convites++;return {};}, abrirGestao() {}, carregarApp: async () => calls.loaded++,
+        contasDisponiveis: async (_, user, contaId) => { calls.descobertas.push(contaId);if(error)throw error;return (contaId ? [contaId] : ['A','B']).map(id => ({ id, nome: id, codigoApp: id === 'A' ? '1' : '2', permissao: 'administrador' })); }
     });
     vm.runInContext(source + '\nthis.abrir=abrir; this.iniciar=iniciar;', context);
     return { context, fb, calls, get, user, callback: () => authCallback, storage, events };
@@ -56,11 +58,13 @@ test('troca A para B preserva a identidade e carrega B sem mostrar login', async
     assert.equal(b.get('#auth-tela').hidden, true);
     await b.context.abrir(b.user);
     assert.equal(b.fb.contaAtiva.id, 'B');
-    assert.deepEqual(b.calls.reads, ['contas/B/meta']);
+    assert.deepEqual(b.calls.reads, []);
     assert.equal(b.get('#auth-tela').hidden, true);
     assert.equal(b.get('#app-shell').hidden, false);
     assert.equal(b.get('#sessao-carregando').hidden, true);
     assert.equal(b.calls.signOut, 0);
+    assert.equal(b.calls.convites,0);
+    assert.equal(b.calls.descobertas[0],'B');
 });
 
 test('falha no acesso à conta não encerra o login e permite escolher outra conta', async () => {
